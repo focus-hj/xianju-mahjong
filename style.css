@@ -154,8 +154,8 @@ body {
 }
 #result-box {
   background: linear-gradient(160deg,#fefdf7,#f0ead6); color: #2f3640;
-  padding: 24px 32px; border-radius: 14px; min-width: 300px; max-width: 92vw;
-  max-height: 88vh; overflow-y: auto; text-align: center;
+  padding: 24px 32px; border-radius: 14px; min-width: 300px; max-width: 92%;
+  max-height: 88%; overflow-y: auto; text-align: center;
   box-shadow: 0 10px 40px rgba(0,0,0,.6);
 }
 #result-title { font-size: 24px; color: #c0392b; margin-bottom: 8px; }

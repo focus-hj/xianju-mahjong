@@ -88,10 +88,9 @@
     <button id="btn-hu" class="act-btn win" style="display:none">胡!</button>
     <button id="btn-pass" class="act-btn pass" style="display:none">过</button>
   </div>
-</div>
 
-<!-- 结算弹窗 -->
-<div id="overlay" style="display:none">
+  <!-- 结算弹窗（放 #table 内：随牌桌一起旋转） -->
+  <div id="overlay" style="display:none">
   <div id="result-box">
     <h2 id="result-title"></h2>
     <div id="result-tai"></div>
@@ -105,7 +104,7 @@
   </div>
 </div>
 
-<!-- 吃法选择弹窗 -->
+<!-- 吃法选择弹窗（放 #table 内：随牌桌一起旋转） -->
 <div id="chi-overlay" style="display:none">
   <div id="chi-box">
     <h3>选择吃法</h3>
@@ -113,6 +112,7 @@
     <button id="btn-chi-cancel" class="mini-btn">取消</button>
   </div>
 </div>
+</div><!-- /#table -->
 
 <script src="js/tiles.js"></script>
 <script src="js/rules.js"></script>
