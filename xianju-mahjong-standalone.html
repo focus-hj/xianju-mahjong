@@ -2,7 +2,10 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>仙居麻将 · 人机对战</title>
 <style>
 /* 仙居麻将 · 牌桌样式 */
@@ -25,7 +28,11 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 12px; background: rgba(0,0,0,.35); flex: 0 0 auto;
   border-bottom: 1px solid rgba(255,255,255,.1);
+  /* 全面屏安全区：横屏刘海/圆角不遮挡 */
+  padding-left: calc(12px + env(safe-area-inset-left, 0px));
+  padding-right: calc(12px + env(safe-area-inset-right, 0px));
 }
+#player-area { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
 .logo { font-weight: 700; font-size: 16px; color: #ffd76a; letter-spacing: 1px; }
 .tag {
   margin-left: 10px; padding: 2px 8px; border-radius: 4px;
@@ -247,6 +254,7 @@ body.mobile .act-btn { padding: 8px 14px; font-size: 13px; }
     <div class="tb-right">
       <span id="wall-info">牌墙 0</span>
       <span id="turn-info"></span>
+      <button id="btn-fullscreen" class="mini-btn">全屏</button>
       <button id="btn-restart" class="mini-btn">重新开局</button>
     </div>
   </div>
@@ -2267,6 +2275,7 @@ if (typeof module !== 'undefined' && module.exports) {
     $('btn-restart').addEventListener('click', () => {
       if (confirm('确定重新开局吗？')) startNewGame();
     });
+    $('btn-fullscreen').addEventListener('click', toggleFullscreen);
     $('btn-next').addEventListener('click', () => {
       hideOverlay();
       game.nextRound();
@@ -2424,12 +2433,44 @@ if (typeof module !== 'undefined' && module.exports) {
     b.classList.toggle('landscape-lock', mobile && portrait);
   }
 
+  /* ============ 全屏 ============ */
+
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function syncFsBtn() {
+    const b = $('btn-fullscreen');
+    if (b) b.textContent = isFullscreen() ? '退出全屏' : '全屏';
+  }
+  /** 切换全屏：整个屏幕都是牌桌；iOS 微信等不支持时给"添加到主屏幕"兜底提示 */
+  function toggleFullscreen() {
+    const doc = document, el = doc.documentElement;
+    if (isFullscreen()) {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+      if (exit) exit.call(doc);
+      return;
+    }
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      try {
+        const p = req.call(el);
+        if (p && p.catch) p.catch(() => flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验'));
+      } catch (e) {
+        flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验');
+      }
+    } else {
+      flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验');
+    }
+  }
+
   /* ============ 初始化 ============ */
 
   function init() {
     fitOrientation();
     window.addEventListener('resize', fitOrientation);
     window.addEventListener('orientationchange', fitOrientation);
+    document.addEventListener('fullscreenchange', syncFsBtn);
+    document.addEventListener('webkitfullscreenchange', syncFsBtn);
     bindButtons();
     startNewGame();
   }

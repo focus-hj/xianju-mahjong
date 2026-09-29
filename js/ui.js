@@ -393,6 +393,7 @@
     $('btn-restart').addEventListener('click', () => {
       if (confirm('确定重新开局吗？')) startNewGame();
     });
+    $('btn-fullscreen').addEventListener('click', toggleFullscreen);
     $('btn-next').addEventListener('click', () => {
       hideOverlay();
       game.nextRound();
@@ -550,12 +551,44 @@
     b.classList.toggle('landscape-lock', mobile && portrait);
   }
 
+  /* ============ 全屏 ============ */
+
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function syncFsBtn() {
+    const b = $('btn-fullscreen');
+    if (b) b.textContent = isFullscreen() ? '退出全屏' : '全屏';
+  }
+  /** 切换全屏：整个屏幕都是牌桌；iOS 微信等不支持时给"添加到主屏幕"兜底提示 */
+  function toggleFullscreen() {
+    const doc = document, el = doc.documentElement;
+    if (isFullscreen()) {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+      if (exit) exit.call(doc);
+      return;
+    }
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      try {
+        const p = req.call(el);
+        if (p && p.catch) p.catch(() => flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验'));
+      } catch (e) {
+        flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验');
+      }
+    } else {
+      flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验');
+    }
+  }
+
   /* ============ 初始化 ============ */
 
   function init() {
     fitOrientation();
     window.addEventListener('resize', fitOrientation);
     window.addEventListener('orientationchange', fitOrientation);
+    document.addEventListener('fullscreenchange', syncFsBtn);
+    document.addEventListener('webkitfullscreenchange', syncFsBtn);
     bindButtons();
     startNewGame();
   }

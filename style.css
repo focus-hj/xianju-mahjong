@@ -18,7 +18,11 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 12px; background: rgba(0,0,0,.35); flex: 0 0 auto;
   border-bottom: 1px solid rgba(255,255,255,.1);
+  /* 全面屏安全区：横屏刘海/圆角不遮挡 */
+  padding-left: calc(12px + env(safe-area-inset-left, 0px));
+  padding-right: calc(12px + env(safe-area-inset-right, 0px));
 }
+#player-area { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
 .logo { font-weight: 700; font-size: 16px; color: #ffd76a; letter-spacing: 1px; }
 .tag {
   margin-left: 10px; padding: 2px 8px; border-radius: 4px;
