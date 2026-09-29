@@ -126,7 +126,9 @@ function winReplace(hand, godTiles, opts = {}) {
   const seat = opts.seat || 0;
   const needSets = 4 - (opts.melds || []).length; // 已完成的吃碰杠面子
   const gods = countGods(hand, godTiles);
-  const rest = hand.filter(t => !isGod(t, godTiles));
+  // 关键：必须排序！minReplaceMelds 假设同牌相邻、顺子从最小牌开始发现，
+  // 未排序的手牌（如摸牌序 ...三万 四万 二万）会漏掉 234 顺子导致误判不胡
+  const rest = hand.filter(t => !isGod(t, godTiles)).sort((a, b) => T.tileSortKey(a) - T.tileSortKey(b));
   const cnt = T.countTiles(rest);
 
   // 锚规则：若手中有财神，且牌型中不存在硬家/自家风的对或刻，则财神无法参与胡牌
@@ -399,16 +401,18 @@ function calcTai(info) {
   // 碰碰胡：无吃，所有面子为刻/杠
   if (!melds.some(m => m.type === 'chi')) {
     // 手牌能否全部分成刻子+将（含财神替）
-    const nonGod = hand.filter(t => !isGod(t, godTiles));
+    // 关键：minReplaceMeldsOnlyKong 依赖排序输入（同牌相邻），否则漏判
+    const nonGod = hand.filter(t => !isGod(t, godTiles)).sort((a, b) => T.tileSortKey(a) - T.tileSortKey(b));
     const gods = countGods(hand, godTiles);
-    // 枚举将后剩余凑4刻
+    // 枚举将后剩余凑刻子（手牌只需补 4-melds 个面子——此前硬编码 4，有副露时永远检测不到）
     const cnt = T.countTiles(nonGod);
+    const needSets = 4 - melds.length;
     let pong = false;
     for (const [k, v] of cnt) {
       if (v < 2) continue;
       const [suit, num] = k.split('|');
       const rem = removeN(nonGod, { suit, num: parseInt(num, 10) }, 2);
-      if (minReplaceMeldsOnlyKong(rem, gods, 4) === 0) { pong = true; break; }
+      if (minReplaceMeldsOnlyKong(rem, gods, needSets) === 0) { pong = true; break; }
     }
     if (pong && melds.filter(m => m.type === 'peng' || m.type === 'gang').length + 0 >= 0) {
       tai += 1; details.push('碰碰胡 +1台');

@@ -69,6 +69,22 @@ assert(gang && gang.type === 'ming', '明杠判定');
 const gang2 = R.canGang(h('w9w9w9w9b1b2b3b4b5f1f1f2'), null, GODS);
 assert(gang2 && gang2.type === 'an', '暗杠判定');
 
+console.log('== 手牌顺序回归（用户截图：摸牌序未判胡 bug） ==');
+// 财神=西+七条；副露：東碰+發碰；手牌按摸牌顺序（二万最后摸进，在末尾）：
+// 九条 七条(神) 七条(神) 白板 白板 三万 四万 二万 → 白板将+二三四万顺+九条财神刻 应判胡
+const GODS_XJ = [{ suit: 'feng', num: 3 }, { suit: 'tiao', num: 7 }];
+const MELDS2 = [{ type: 'peng', tile: { suit: 'feng', num: 1 } }, { type: 'peng', tile: { suit: 'jian', num: 2 } }];
+assert(R.canWin(h('b9b7b7j3j3w3w4w2'), GODS_XJ, { seat: 1, melds: MELDS2 }) === true, '摸牌序（二万在末尾）应判胡');
+assert(R.canWin(h('b9b7b7j3j3w2w3w4'), GODS_XJ, { seat: 1, melds: MELDS2 }) === true, '排序后同牌型也判胡（顺序无关）');
+// 碰碰胡台数检测也应与手牌顺序无关
+const infoPong = {
+  hand: h('b9w5b9w5b9w5j3j3'), // 未排序：9条/5万交错 + 白板对（将）
+  godTiles: GODS_XJ, seat: 1, zhuangSeat: 2,
+  melds: MELDS2, winType: 'self', collectedFlowers: [],
+};
+const taiPong = R.calcTai(infoPong);
+assert(taiPong.details.some(d => d.includes('碰碰胡')), '碰碰胡检测与手牌顺序无关');
+
 console.log('== 台数计算 ==');
 const info = {
   hand: h('w1w2w3w4w5w6w7w8w9b1b2b3j3j3'),
