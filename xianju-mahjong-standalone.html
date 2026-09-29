@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1d4a2a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="仙居麻将">
 <title>仙居麻将 · 人机对战</title>
 <style>
 /* 仙居麻将 · 牌桌样式 */
@@ -2442,19 +2444,26 @@ if (typeof module !== 'undefined' && module.exports) {
     const b = $('btn-fullscreen');
     if (b) b.textContent = isFullscreen() ? '退出全屏' : '全屏';
   }
-  /** 切换全屏：整个屏幕都是牌桌；iOS 微信等不支持时给"添加到主屏幕"兜底提示 */
+  /** 切换全屏：整个屏幕都是牌桌；Android 全屏时同时锁定横屏。iOS 微信不支持时给"添加到主屏幕"兜底提示 */
   function toggleFullscreen() {
     const doc = document, el = doc.documentElement;
     if (isFullscreen()) {
       const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
       if (exit) exit.call(doc);
+      try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
       return;
     }
     const req = el.requestFullscreen || el.webkitRequestFullscreen;
     if (req) {
       try {
-        const p = req.call(el);
-        if (p && p.catch) p.catch(() => flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验'));
+        const p = req.call(el, { navigationUI: 'hide' });
+        if (p && p.then) {
+          p.then(() => {
+            // Android：全屏后顺手锁定横屏（不支持的系统静默忽略）
+            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+          });
+          if (p.catch) p.catch(() => flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验'));
+        }
       } catch (e) {
         flashMsg('当前浏览器不支持全屏：可「添加到主屏幕」获得全屏体验');
       }

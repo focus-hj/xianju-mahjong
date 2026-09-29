@@ -34,6 +34,8 @@ if (!ui.includes('__TILE_DATA')) { console.error('ui.js 打补丁失败'); proce
 // 4. 拼装单文件 HTML
 let html = read('index.html');
 html = html.replace('<link rel="stylesheet" href="style.css">', () => `<style>\n${css}\n</style>`);
+// 单文件版剔除 manifest / 图标外链（file:// 下无意义）
+html = html.replace(/<link rel="manifest"[^>]*>\n?/, '').replace(/<link rel="apple-touch-icon"[^>]*>\n?/, '');
 for (const js of ['tiles', 'rules', 'ai', 'game', 'ui']) {
   const code = js === 'ui' ? ui : read(`js/${js}.js`);
   const tag = `<script src="js/${js}.js"></script>`;
