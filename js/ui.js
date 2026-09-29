@@ -540,9 +540,22 @@
     window.__mj = game; // 调试句柄（控制台可用 __mj.snapshot() 查看引擎状态）
   }
 
+  /* ============ 手机端强制横屏 ============ */
+  /** 触屏手机：竖屏持机时给 body 加 landscape-lock，把整个牌桌旋转 90° 横屏显示 */
+  function fitOrientation() {
+    const b = document.body;
+    const mobile = ('ontouchstart' in window) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const portrait = window.innerHeight > window.innerWidth;
+    b.classList.toggle('mobile', mobile);
+    b.classList.toggle('landscape-lock', mobile && portrait);
+  }
+
   /* ============ 初始化 ============ */
 
   function init() {
+    fitOrientation();
+    window.addEventListener('resize', fitOrientation);
+    window.addEventListener('orientationchange', fitOrientation);
     bindButtons();
     startNewGame();
   }
