@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>仙居麻将 · 人机对战</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- 牌桌 -->
+<div id="table">
+  <!-- 顶部信息栏 -->
+  <div id="topbar">
+    <div class="tb-left">
+      <span class="logo">🀄 仙居麻将</span>
+      <span id="dealer-tag" class="tag">庄家</span>
+      <span id="god-tag" class="tag god">财神</span>
+    </div>
+    <div class="tb-right">
+      <span id="wall-info">牌墙 0</span>
+      <span id="turn-info"></span>
+      <button id="btn-restart" class="mini-btn">重新开局</button>
+    </div>
+  </div>
+
+  <!-- 牌桌主区（四边布局：我下 / 南右 / 西上 / 北左） -->
+  <div id="table-main">
+    <!-- 对家：西家（上方） -->
+    <div class="opp" id="opp-3">
+      <div class="opp-info"><span class="seat-name">西家</span><span class="opp-tiles"></span><span class="opp-melds"></span><span class="opp-flowers"></span></div>
+      <div class="opp-hand" id="hand-3"></div>
+    </div>
+    <!-- 上家：北家（左方） -->
+    <div class="opp" id="opp-4">
+      <div class="opp-info"><span class="seat-name">北家</span><span class="opp-tiles"></span><span class="opp-melds"></span><span class="opp-flowers"></span></div>
+      <div class="opp-hand v" id="hand-4"></div>
+    </div>
+    <!-- 下家：南家（右方） -->
+    <div class="opp" id="opp-2">
+      <div class="opp-info"><span class="seat-name">南家</span><span class="opp-tiles"></span><span class="opp-melds"></span><span class="opp-flowers"></span></div>
+      <div class="opp-hand v" id="hand-2"></div>
+    </div>
+
+    <!-- 弃牌区：每家打出的牌排在自己面前 -->
+    <div class="discard-pile" id="discard-3"></div>  <!-- 西家（上）面前 -->
+    <div class="discard-pile" id="discard-4"></div>  <!-- 北家（左）面前 -->
+    <div class="discard-pile" id="discard-2"></div>  <!-- 南家（右）面前 -->
+    <div class="discard-pile" id="discard-1"></div>  <!-- 我（下）面前 -->
+
+    <div id="center-deco">仙居麻将</div>
+    <div id="msg-bar"></div>
+
+    <!-- 倒计时钟（当前行动玩家前方，SVG 环形进度） -->
+    <div id="countdown-clock">
+      <svg viewBox="0 0 60 60">
+        <circle class="clock-bg" cx="30" cy="30" r="26"/>
+        <circle class="clock-ring" cx="30" cy="30" r="26"/>
+      </svg>
+      <span id="clock-num">20</span>
+    </div>
+  </div>
+
+  <!-- 玩家区 -->
+  <div id="player-area">
+    <div id="player-meta">
+      <span class="seat-name">东家(我)</span>
+      <span id="my-flowers" class="flower-row"></span>
+      <span id="my-score">0</span>
+    </div>
+    <div id="my-melds" class="meld-row"></div>
+    <div id="my-hand" class="hand-row"></div>
+  </div>
+
+  <!-- 横屏提示（仅手机竖屏时显示） -->
+  <div id="rotate-tip">🔄 横屏体验更佳</div>
+
+  <!-- 操作区 -->
+  <div id="actions">
+    <button id="btn-discard" class="act-btn discard" style="display:none">出牌</button>
+    <button id="btn-chi" class="act-btn" style="display:none">吃</button>
+    <button id="btn-peng" class="act-btn" style="display:none">碰</button>
+    <button id="btn-gang" class="act-btn" style="display:none">杠</button>
+    <button id="btn-hu" class="act-btn win" style="display:none">胡!</button>
+    <button id="btn-pass" class="act-btn pass" style="display:none">过</button>
+  </div>
+</div>
+
+<!-- 结算弹窗 -->
+<div id="overlay" style="display:none">
+  <div id="result-box">
+    <h2 id="result-title"></h2>
+    <div id="result-tai"></div>
+    <div id="result-detail"></div>
+    <div id="result-scores"></div>
+    <div id="result-hand"></div>
+    <div class="btn-row">
+      <button id="btn-next" class="big-btn">下一局</button>
+      <button id="btn-again" class="big-btn ghost">重新开始</button>
+    </div>
+  </div>
+</div>
+
+<!-- 吃法选择弹窗 -->
+<div id="chi-overlay" style="display:none">
+  <div id="chi-box">
+    <h3>选择吃法</h3>
+    <div id="chi-options"></div>
+    <button id="btn-chi-cancel" class="mini-btn">取消</button>
+  </div>
+</div>
+
+<script src="js/tiles.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
