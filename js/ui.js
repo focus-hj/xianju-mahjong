@@ -49,10 +49,11 @@
     return el;
   }
 
-  /** 花色排序函数 */
-  function suitOrder(t) {
-    const order = { wan:0, tong:1, tiao:2, feng:3, jian:4, flower:5 };
-    return (order[t.suit]||6) * 100 + t.num;
+  /** 手牌排序键：筒→万→条→风→中发白，财神永远排最后 */
+  function suitOrder(t, godTiles) {
+    const order = { tong: 0, wan: 1, tiao: 2, feng: 3, jian: 4, flower: 5 };
+    const base = (order[t.suit] ?? 6) * 100 + t.num;
+    return (godTiles && R.isGod(t, godTiles)) ? 10000 + base : base;
   }
 
   /* ============ 快照渲染 ============ */
@@ -165,7 +166,7 @@
         && me.hand.length && T.sameTile(me.hand[me.hand.length - 1], snap.lastDrawn.tile))
         ? me.hand.length - 1 : -1;
       const sorted = me.hand.map((t, i) => ({ t, i }));
-      sorted.sort((a, b) => suitOrder(a.t) - suitOrder(b.t));
+      sorted.sort((a, b) => suitOrder(a.t, snap.godTiles) - suitOrder(b.t, snap.godTiles));
       sorted.forEach(({ t, i }) => {
         const el = makeTileEl(t, {});
         if (t.suit === 'flower') {
