@@ -95,6 +95,18 @@ const infoPong = {
 const taiPong = R.calcTai(infoPong);
 assert(taiPong.details.some(d => d.includes('碰碰胡')), '碰碰胡检测与手牌顺序无关');
 
+console.log('== 用户截图回归（2024-09-30 反馈） ==');
+// 财神=北(f4)+六条(b6)；吃123条副露
+const GODS_XJ2 = [{ suit: 'feng', num: 4 }, { suit: 'tiao', num: 6 }];
+const MELD_CHI123 = [{ type: 'chi', tile: { suit: 'tiao', num: 1 }, tiles: [{ suit: 'tiao', num: 1 }, { suit: 'tiao', num: 2 }, { suit: 'tiao', num: 3 }] }];
+// 截图1：4筒5筒5筒 6条(神) 7条8条9条 东 北(神) 2万2万 —— 差一个面子且无硬章 → 不胡
+assert(R.canWin(h('t4t5t5b6b7b8b9f1f4w2w2'), GODS_XJ2, { seat: 1, melds: MELD_CHI123 }) === false, '截图1：差一个面子且无硬章，判不胡');
+// 截图2-碰前：手牌 4筒5筒6筒 6条(神) 9条 北(神) 2万2万 东，别人打东 → 仍差一个面子 → 不能点炮胡
+assert(R.canWin(h('t4t5t6b6b9f4w2w2f1f1'), GODS_XJ2, { seat: 1, melds: MELD_CHI123 }) === false, '截图2-碰前：加东仍差一面子，不胡（只能碰）');
+// 截图2-碰后：副露加碰东（自家风刻=硬章），手牌 4筒5筒6筒 6条(神) 9条 北(神) 2万2万 → 成型可胡
+const MELD_CHI_PENG = MELD_CHI123.concat([{ type: 'peng', tile: { suit: 'feng', num: 1 } }]);
+assert(R.canWin(h('t4t5t6b6b9f4w2w2'), GODS_XJ2, { seat: 1, melds: MELD_CHI_PENG }) === true, '截图2-碰后：将2万+456筒+9条财神刻+自家风刻硬章 → 胡');
+
 console.log('== 台数计算 ==');
 const info = {
   hand: h('w1w2w3w4w5w6w7w8w9b1b2b3j3j3'),

@@ -68,6 +68,8 @@ function minReplaceMelds(tiles, godsLeft, needSets) {
     // 牌耗尽但还要面子：缺的靠未来摸牌补齐；gods 不足则判远
     return godsLeft >= needSets * 3 ? 0 : WIN_INF;
   }
+  // 递归保护：剩余真牌永远填不满面子缺口时直接判远（防无限递归栈溢出）
+  if (tiles.length + godsLeft < needSets * 3) return WIN_INF;
   const first = tiles[0];
   const c = countInHand(tiles, first);
   let best = WIN_INF;
@@ -474,10 +476,11 @@ function calcTai(info) {
   return { tai, details };
 }
 
-/** 只用刻子凑面子（碰碰胡检测用），财神补缺 */
+/** 只用刻子凑面子（碰碰胡/对对胡检测用），财神补缺 */
 function minReplaceMeldsOnlyKong(tiles, godsLeft, needSets) {
   if (needSets === 0) return tiles.length === 0 ? 0 : WIN_INF;
   if (tiles.length === 0) return godsLeft >= needSets * 3 ? 0 : WIN_INF;
+  if (tiles.length + godsLeft < needSets * 3) return WIN_INF; // 递归保护
   const first = tiles[0];
   const c = countInHand(tiles, first);
   let best = WIN_INF;
