@@ -156,6 +156,12 @@ body {
 .act-btn.win { background: linear-gradient(160deg,#e74c3c,#c0392b); color: #fff; animation: pulse 0.8s infinite; }
 .act-btn.pass { background: linear-gradient(160deg,#7f8c8d,#636e72); color: #fff; }
 .act-btn.discard { background: linear-gradient(160deg,#2ecc71,#1e9e52); color: #fff; }
+.act-btn.swap { background: linear-gradient(160deg,#5dade2,#2e86c1); color: #fff; }
+/* 副露里压着财神的标记 */
+.meld-god-badge {
+  font-size: 9px; color: #ffd76a; background: rgba(0,0,0,.55);
+  border-radius: 3px; padding: 0 3px; align-self: center; line-height: 1.6;
+}
 .act-btn:hover { filter: brightness(1.1); }
 @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
 

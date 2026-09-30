@@ -143,6 +143,13 @@
       me.melds.forEach(m => {
         const wrap = document.createElement('div');
         wrap.className = 'meld';
+        // 副露里压着财神（财神碰/双夹）→ 加小标记，提示可抽回
+        if ((m.godTilesUsed || []).length > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'meld-god-badge';
+          badge.textContent = '神×' + m.godTilesUsed.length;
+          wrap.appendChild(badge);
+        }
         if (m.type === 'chi' && m.tiles) {
           m.tiles.forEach(tt => wrap.appendChild(makeTileEl(tt, { tiny: true })));
         } else {
@@ -233,7 +240,7 @@
     if (!bar) return;
     if (snap.roundInfo) {
       const ri = snap.roundInfo;
-      if (ri.isHumanWin) bar.textContent = '恭喜胡牌！' + ri.winType === 'self' ? '自摸' : '点炮';
+      if (ri.isHumanWin) bar.textContent = '恭喜胡牌！' + (ri.winType === 'self' ? '自摸' : '点炮');
       else bar.textContent = ri.winnerName + (ri.winType === 'self' ? ' 自摸胡牌' : ' 胡牌');
     } else if (snap.drawGame) {
       bar.textContent = '牌墙摸完，流局';
@@ -294,6 +301,10 @@
       showAction('btn-chi', false);
       showAction('btn-pass', true);
     } else if (phase === 'waitHumanDiscard') {
+      // 自摸胡按钮：玩家自己决定要不要胡
+      showAction('btn-hu', !!snap.selfHu);
+      // 财神抽回按钮：副露里有财神压着的碰，且手牌摸到了对应真牌
+      showAction('btn-swap', !!game && game.canSwapGod(1));
       // 暗杠 / 补杠入口
       const hasAnGang = canHumanAnGang(snap);
       const hasBuGang = canHumanBuGang(snap);
@@ -389,7 +400,12 @@
       }
       game.humanClaim('pass');
     });
-    $('btn-hu').addEventListener('click', () => game && game.humanClaim('hu'));
+    $('btn-hu').addEventListener('click', () => {
+      if (!game) return;
+      if (game.phase === 'waitHumanDiscard') game.humanSelfHu(); // 自摸胡（按钮制）
+      else game.humanClaim('hu'); // 点炮胡
+    });
+    $('btn-swap').addEventListener('click', () => { if (game) game.swapGod(1); });
     $('btn-peng').addEventListener('click', () => game && game.humanClaim('peng'));
     $('btn-gang').addEventListener('click', () => game && game.humanClaim('gang'));
     $('btn-chi').addEventListener('click', () => {
@@ -413,6 +429,7 @@
     });
     $('btn-chi-cancel').addEventListener('click', () => {
       if (game && game.phase === 'waitHumanChi') {
+        game.clearThink(); // 取消吃法选择倒计时
         game.needChiChoice = null;
         game.pendingClaims = game.pendingClaims.filter(c => c.seat !== 1);
         game.claimsPassedCheck();
@@ -455,9 +472,12 @@
       return;
     }
     const title = $('result-title');
-    title.textContent = (ri.isHumanWin ? '🎉 恭喜胡牌！' : ri.winnerName + ' 胡牌') + (ri.winType === 'self' ? '（自摸）' : '（点炮）');
+    const chengBao = ri.chengBao && ri.chengBao.length > 0;
+    title.textContent = (ri.isHumanWin ? '🎉 恭喜胡牌！' : ri.winnerName + ' 胡牌')
+      + (ri.winType === 'self' ? '（自摸）' : (chengBao ? '（点炮·承包）' : '（点炮）'));
     $('result-tai').textContent = ri.tai + ' 台';
-    $('result-detail').textContent = ri.details.join('  ·  ');
+    $('result-detail').textContent = ri.details.join('  ·  ')
+      + (chengBao ? '　💥 ' + T.FENG_NAMES[ri.payerSeat - 1] + '家' + ri.chengBao.join('、') + '，包三家(×3)' : '');
     // 各家得分
     const meSeat = 1;
     let scoreHtml = '';
@@ -493,9 +513,34 @@
         });
         group.appendChild(meldWrap);
       }
+      // 手牌按成型结构分组展示（财神嵌在实际使用位置）
       const handWrap = document.createElement('div');
-      handWrap.style.cssText = 'display:flex;gap:2px;flex-wrap:wrap;justify-content:center;';
-      (winner.huInfo.handRaw || []).forEach(tt => handWrap.appendChild(makeTileEl(tt, { small: true })));
+      handWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;';
+      const handRaw = winner.huInfo.handRaw || [];
+      const decomp = handRaw.length ? R.winDecompose(handRaw, snap.godTiles, { melds: winner.huInfo.meldsRaw || [] }) : null;
+      if (decomp) {
+        const addGroup = (tilesArr, label) => {
+          const g = document.createElement('div');
+          g.style.cssText = 'display:flex;gap:1px;background:#e8e0c8;border:1px solid #b8a97a;padding:2px;border-radius:4px;';
+          if (label) {
+            const lab = document.createElement('div');
+            lab.style.cssText = 'font-size:8px;color:#8a7a50;display:flex;align-items:center;padding:0 2px;writing-mode:vertical-lr;';
+            lab.textContent = label;
+            g.appendChild(lab);
+          }
+          tilesArr.forEach(tt => {
+            const el = makeTileEl(tt, { small: true });
+            if (R.isGod(tt, snap.godTiles)) el.classList.add('god-mark'); // 财神镀膜标识
+            g.appendChild(el);
+          });
+          handWrap.appendChild(g);
+        };
+        decomp.sets.forEach(gset => addGroup(gset));
+        addGroup(decomp.pair, '将'); // 将放最后
+      } else {
+        // 兜底：分解失败则平铺
+        handRaw.forEach(tt => handWrap.appendChild(makeTileEl(tt, { small: true })));
+      }
       group.appendChild(handWrap);
       handEl.appendChild(group);
     } else if (winner && winner.huInfo && winner.huInfo.hand) {
@@ -530,11 +575,7 @@
       claimCandidates = snap.pendingClaims.map(c => Object.assign({}, c));
       render(snap);
       if (snap.phase === 'waitHumanClaim') {
-        const myHu = claimCandidates.find(c => c.seat === 1 && c.action === 'hu');
-        // 自动胡：能胡必胡(简化体验)，否则等玩家操作
-        if (myHu) {
-          setTimeout(() => { if (game) game.humanClaim('hu'); }, 400);
-        }
+        // 能胡也仅亮按钮，由玩家决定（不自动胡）
       } else if (snap.phase === 'waitHumanChi') {
         if (game.needChiChoice && game.needChiChoice.length) {
           showChiOverlay(game.needChiChoice);

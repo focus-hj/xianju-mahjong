@@ -81,6 +81,9 @@ class Game {
     this.autoPassTimer = null;
     this.gangKaiSeat = 0;      // 刚杠完的座位（杠后补牌标记）
     this.lastDrawn = null;     // 刚摸上来的牌 {seat, tile}（UI 圈示用），打出后清空
+    this.huPayerSeat = 0;      // 点炮者座位（结算用）
+    this.huChengBao = [];      // 承包触发原因列表（空=普通点炮付2×，非空=承包付3×）
+    this.selfHu = null;        // 玩家自摸待确认 {tianhu?, gangKai?}（胡牌由玩家点「胡」决定，不自动胡）
   }
 
   /** 记录日志 */
@@ -131,10 +134,30 @@ class Game {
       this.thinkInfo = null;
       if (this.phase !== 'waitHumanDiscard') return;
       const p = this.getPlayer(this.humanSeat);
-      // 超时随机打出一张（财神也可能被打出）
       const idx = Math.floor(Math.random() * p.hand.length);
       this.pushLog('超时未出牌，随机打出 ' + T.tileToString(p.hand[idx]));
       this.humanDiscard(idx);
+    }, this.humanTimeoutMs);
+  }
+
+  /** 玩家声明（吃/碰/杠/胡/过）倒计时：超时自动「过」 */
+  _scheduleHumanClaimTimer() {
+    if (!this.humanTimeoutMs) return;
+    if (this.thinkTimer) return;
+    const now = Date.now();
+    this.thinkInfo = { seat: this.humanSeat, kind: 'claim', startedAt: now, until: now + this.humanTimeoutMs };
+    this.thinkTimer = setTimeout(() => {
+      this.thinkTimer = null;
+      this.thinkInfo = null;
+      if (this.phase === 'waitHumanClaim') {
+        this.pushLog('超时未决定，自动过');
+        this.humanClaim('pass');
+      } else if (this.phase === 'waitHumanChi') {
+        this.pushLog('超时未选择吃法，自动过');
+        this.needChiChoice = null;
+        this.pendingClaims = this.pendingClaims.filter(c => c.seat !== this.humanSeat);
+        this.claimsPassedCheck();
+      }
     }, this.humanTimeoutMs);
   }
 
@@ -171,6 +194,8 @@ class Game {
       thinking: this.thinkInfo ? { seat: this.thinkInfo.seat, kind: this.thinkInfo.kind, startedAt: this.thinkInfo.startedAt, until: this.thinkInfo.until } : null,
       // 刚摸上来的牌（仅用于 UI 圈示；打出后为 null）
       lastDrawn: this.lastDrawn ? { seat: this.lastDrawn.seat, tile: this.lastDrawn.tile } : null,
+      // 玩家自摸待确认（亮「胡」按钮由玩家决定）
+      selfHu: !!this.selfHu,
     };
   }
 
@@ -200,11 +225,15 @@ class Game {
     }
     // 全场补花（循环）
     for (const seat of SEATS) this.buHua(seat, true);
-    // 庄家天胡检测
+    // 庄家天胡检测（AI 自动胡；玩家亮「胡」按钮自行决定）
     const zhuang = this.getPlayer(this.zhuangSeat);
     if (R.canWin(zhuang.hand, this.godTiles, { seat: this.zhuangSeat, melds: zhuang.melds })) {
-      this.pushLog('庄家天胡！');
-      return this.finish(zhuang.seat, 'tianhu', zhuang.hand.slice(), null, true);
+      if (zhuang.isHuman) {
+        this.selfHu = { tianhu: true };
+      } else {
+        this.pushLog('庄家天胡！');
+        return this.finish(zhuang.seat, 'tianhu', zhuang.hand.slice(), null, true);
+      }
     }
     this.currentSeat = this.zhuangSeat;
     this.phase = 'discard';
@@ -284,20 +313,14 @@ class Game {
       this.pushLog(this.seatName(seat) + ' 摸到花牌补花');
       // 补花后手牌数量回到 13（若补到花则继续补），重新检测自摸/暗杠
       if (this.deck.length === 0) { this.drawGame = true; return this.finish(0, 'draw', null, null, false); }
-      if (R.canWin(p.hand, this.godTiles, { seat, melds: p.melds })) {
-        this.pushLog(this.seatName(seat) + ' 补花后自摸胡！');
-        return this.finish(seat, 'self', p.hand.slice(), null, false);
-      }
+      if (this._checkSelfHu(seat, false)) return;
       this.phase = 'discard';
       this.emit();
       this.autoRun();
       return;
     }
-    // 自摸胡检测
-    if (R.canWin(p.hand, this.godTiles, { seat, melds: p.melds })) {
-      this.pushLog(this.seatName(seat) + ' 自摸胡！');
-      return this.finish(seat, 'self', p.hand.slice(), null, false);
-    }
+    // 自摸胡检测（AI 自动胡；玩家亮「胡」按钮）
+    if (this._checkSelfHu(seat, false)) return;
     // 暗杠检测（玩家可决策，AI 自动）
     this.phase = 'discard';
     this.emit();
@@ -307,6 +330,8 @@ class Game {
   /** AI 打牌 */
   aiDiscard(seat) {
     const p = this.getPlayer(seat);
+    // 财神碰/双夹的副露里若压着财神，且手里摸到了对应真牌 → 抽回财神（永远划算）
+    this.swapGod(seat);
     // 暗杠决策
     const anGang = R.canGang(p.hand, null, this.godTiles);
     if (anGang && AI.wantGang(p.hand, { ...anGang.tile, isDiscard: false }, this.godTiles, { seat })) {
@@ -316,6 +341,69 @@ class Game {
     const decision = AI.chooseDiscard(p.hand, this.godTiles, { seat, melds: p.melds });
     if (!decision) return;
     this.doDiscard(seat, decision.index);
+  }
+
+  /* ============ 财神抽回（财神碰/双夹后，摸到真牌可换回） ============ */
+
+  /** 检查是否有可抽回财神的副露：副露为碰、曾用财神、且手牌有该牌真牌 */
+  canSwapGod(seat) {
+    const p = this.getPlayer(seat);
+    return p.melds.some(m =>
+      m.type === 'peng' && (m.godTilesUsed || []).length > 0 && T.countInHand(p.hand, m.tile) >= 1
+    );
+  }
+
+  /** 抽回财神：手牌移除 1 张对应真牌入副露，副露中 1 张财神回到手牌 */
+  swapGod(seat) {
+    const p = this.getPlayer(seat);
+    const m = p.melds.find(m =>
+      m.type === 'peng' && (m.godTilesUsed || []).length > 0 && T.countInHand(p.hand, m.tile) >= 1
+    );
+    if (!m) return false;
+    const idx = p.hand.findIndex(x => T.sameTile(x, m.tile));
+    if (idx < 0) return false;
+    p.hand.splice(idx, 1);                    // 真牌补进副露
+    const godBack = m.godTilesUsed.pop();     // 财神抽回手牌
+    p.hand.push(godBack);
+    this.pushLog(this.seatName(seat) + ' 用 ' + T.tileToString(m.tile) + ' 换回财神 ' + T.tileToString(godBack));
+    this.emit();
+    return true;
+  }
+
+  /* ============ 自摸胡检测（玩家点按钮制） ============ */
+
+  /**
+   * 自摸检测：AI 自动胡；玩家只亮「胡」按钮（selfHu 挂起），由玩家决定要不要胡
+   * @returns true=已处理（胡或挂起）
+   */
+  _checkSelfHu(seat, gangKai = false) {
+    const p = this.getPlayer(seat);
+    const win = R.canWin(p.hand, this.godTiles, { seat, melds: p.melds });
+    if (p.isHuman) {
+      // 始终刷新自摸挂起状态（能胡则亮按钮，不能胡则清除）
+      this.selfHu = win ? Object.assign(this.selfHu || {}, { gangKai }) : null;
+      if (win) {
+        this.phase = 'waitHumanDiscard';
+        this.emit();
+        return true;
+      }
+      return false;
+    }
+    if (!win) return false;
+    this.pushLog(this.seatName(seat) + (gangKai ? ' 杠上开花自摸！' : ' 自摸胡！'));
+    this.finish(seat, 'self', p.hand.slice(), null, false, gangKai);
+    return true;
+  }
+
+  /** 玩家确认自摸胡（点「胡」按钮）；也可以放弃按钮改打牌 */
+  humanSelfHu() {
+    if (this.phase !== 'waitHumanDiscard' || !this.selfHu) return;
+    this.clearThink();
+    const p = this.getPlayer(this.humanSeat);
+    const opts = this.selfHu;
+    this.selfHu = null;
+    this.pushLog('你 自摸胡！');
+    this.finish(this.humanSeat, 'self', p.hand.slice(), null, !!opts.tianhu, !!opts.gangKai);
   }
 
   /** 执行打牌 */
@@ -391,6 +479,7 @@ class Game {
     const humanClaims = this.pendingClaims.filter(c => this.getPlayer(c.seat).isHuman);
     if (humanClaims.length > 0) {
       this.phase = 'waitHumanClaim';
+      this._scheduleHumanClaimTimer(); // 声明决策 20s 倒计时，超时自动过
       this.emit();
       return;
     }
@@ -454,8 +543,10 @@ class Game {
 
   doPeng(seat, tile) {
     const p = this.getPlayer(seat);
-    // 从手牌移除2张真牌（或1真1财神/2财神）
+    this.selfHu = null; // 碰后无摸牌，清掉可能残留的自摸挂起
+    // 从手牌移除2张真牌（或1真1财神/2财神）；用掉的财神记录在副露里，后续摸到真牌可抽回
     const peng = R.canPeng(p.hand, tile, this.godTiles);
+    const godTilesUsed = [];
     let removed = 0;
     if (peng.type === 'gold') {
       for (let i = 0; i < p.hand.length && removed < 2; i++) {
@@ -465,13 +556,13 @@ class Game {
       const ti = p.hand.findIndex(x => T.sameTile(x, tile));
       if (ti >= 0) p.hand.splice(ti, 1);
       const gi = p.hand.findIndex(x => R.isGod(x, this.godTiles));
-      if (gi >= 0) p.hand.splice(gi, 1);
+      if (gi >= 0) godTilesUsed.push(p.hand.splice(gi, 1)[0]);
     } else { // double
       for (let i = 0; i < p.hand.length && removed < 2; i++) {
-        if (R.isGod(p.hand[i], this.godTiles)) { p.hand.splice(i, 1); removed++; i--; }
+        if (R.isGod(p.hand[i], this.godTiles)) { godTilesUsed.push(p.hand.splice(i, 1)[0]); removed++; i--; }
       }
     }
-    p.melds.push({ type: 'peng', tile: Object.assign({}, tile), claimType: peng.type });
+    p.melds.push({ type: 'peng', tile: Object.assign({}, tile), claimType: peng.type, godTilesUsed, fromSeat: this.lastDiscard ? this.lastDiscard.seat : 0 });
     this.removeDiscard(tile);
     this.pushLog(this.seatName(seat) + ' 碰 ' + T.tileToString(tile) + '（' + (peng.type === 'gold' ? '金碰' : peng.type === 'god' ? '财神碰' : '双夹') + '）');
     this.currentSeat = seat;
@@ -482,13 +573,14 @@ class Game {
 
   doChi(seat, tile, chiTiles) {
     const p = this.getPlayer(seat);
+    this.selfHu = null; // 吃后无摸牌，清掉可能残留的自摸挂起
     // 从手牌移除顺子中非打出牌的两张
     const need = chiTiles.filter(t => !T.sameTile(t, tile));
     for (const nt of need) {
       const idx = p.hand.findIndex(x => T.sameTile(x, nt));
       if (idx >= 0) p.hand.splice(idx, 1);
     }
-    p.melds.push({ type: 'chi', tile: Object.assign({}, tile), tiles: chiTiles.map(t => Object.assign({}, t)) });
+    p.melds.push({ type: 'chi', tile: Object.assign({}, tile), tiles: chiTiles.map(t => Object.assign({}, t)), fromSeat: this.lastDiscard ? this.lastDiscard.seat : 0 });
     this.removeDiscard(tile);
     this.pushLog(this.seatName(seat) + ' 吃 ' + chiTiles.map(T.tileToString).join(''));
     this.currentSeat = seat;
@@ -504,7 +596,7 @@ class Game {
     for (let i = 0; i < p.hand.length && removed < 3; i++) {
       if (T.sameTile(p.hand[i], tile)) { p.hand.splice(i, 1); removed++; i--; }
     }
-    p.melds.push({ type: 'gang', tile: Object.assign({}, tile), isAn: false });
+    p.melds.push({ type: 'gang', tile: Object.assign({}, tile), isAn: false, fromSeat: this.lastDiscard ? this.lastDiscard.seat : 0 });
     this.removeDiscard(tile);
     this.gangKaiSeat = seat;
     this.pushLog(this.seatName(seat) + ' 明杠 ' + T.tileToString(tile));
@@ -517,7 +609,7 @@ class Game {
     for (let i = 0; i < p.hand.length && removed < 4; i++) {
       if (T.sameTile(p.hand[i], tile)) { p.hand.splice(i, 1); removed++; i--; }
     }
-    p.melds.push({ type: 'gang', tile: Object.assign({}, tile), isAn: true });
+    p.melds.push({ type: 'gang', tile: Object.assign({}, tile), isAn: true, fromSeat: 0 });
     this.gangKaiSeat = seat;
     this.pushLog(this.seatName(seat) + ' 暗杠 ' + T.tileToString(tile));
     this.afterGang(seat);
@@ -538,32 +630,81 @@ class Game {
       this.pushLog(this.seatName(seat) + ' 补花');
       if (this.deck.length === 0) { this.drawGame = true; return this.finish(0, 'draw', null, null, false); }
       // 补花后回到打牌回合（补花补进的牌也可能自摸）
-      if (R.canWin(p.hand, this.godTiles, { seat, melds: p.melds })) {
-        this.pushLog(this.seatName(seat) + ' 杠后补花自摸！');
-        return this.finish(seat, 'self', p.hand.slice(), null, false, true);
-      }
+      if (this._checkSelfHu(seat, true)) return;
       this.phase = 'discard';
       this.emit(); this.autoRun();
       return;
     }
     // 杠上开花
-    if (R.canWin(p.hand, this.godTiles, { seat, melds: p.melds })) {
-      this.pushLog(this.seatName(seat) + ' 杠上开花自摸！');
-      return this.finish(seat, 'self', p.hand.slice(), null, false, true);
-    }
+    if (this._checkSelfHu(seat, true)) return;
     this.phase = 'discard';
     this.emit();
     this.autoRun();
+  }
+
+  /**
+   * 承包（包牌）检测 —— 点炮胡时调用，返回触发原因数组（空=普通点炮）。
+   * 仙居规则三触发条件：
+   *  ① 硬家承包：点炮者自己没听牌，打出中发白被胡
+   *  ② 清一色承包：赢家副露≥3摊同花色（万/筒/条），点炮者打同花色让其清一色胡
+   *  ③ 连碰三摊：赢家≥3个碰/杠类副露全部来自点炮者，再点炮给他
+   * @param {number} winnerSeat 胡牌者
+   * @param {number} discarderSeat 点炮者
+   * @param {Object} winTile 所点之牌
+   * @param {Array} hand14 赢家胡牌手牌（14张）
+   * @returns {string[]} 触发原因（可同时多条）
+   */
+  checkChengBao(winnerSeat, discarderSeat, winTile, hand14) {
+    const reasons = [];
+    const winner = this.getPlayer(winnerSeat);
+    const discarder = this.getPlayer(discarderSeat);
+
+    // ① 硬家承包：打中发白 + 自己没听牌（以打出后剩余13张判定听牌）
+    if (winTile.suit === 'jian') {
+      const tenpai = R.isTenpai(discarder.hand, this.godTiles, { seat: discarderSeat, melds: discarder.melds });
+      if (!tenpai) reasons.push('硬家承包（没听牌打' + T.tileToString(winTile) + '）');
+    }
+
+    // ② 清一色承包：赢家副露≥3摊同一数字花色，且所点牌同花色，且赢家确为清一色
+    const suitMeldCount = { wan: 0, tong: 0, tiao: 0 };
+    for (const m of winner.melds) {
+      const suit = m.type === 'chi'
+        ? (m.tiles && m.tiles.length ? m.tiles[0].suit : (m.tile ? m.tile.suit : null))
+        : (m.tile ? m.tile.suit : null);
+      if (suit && suitMeldCount[suit] !== undefined) suitMeldCount[suit]++;
+    }
+    const dangerSuit = Object.keys(suitMeldCount).find(s => suitMeldCount[s] >= 3);
+    if (dangerSuit && winTile.suit === dangerSuit) {
+      // 赢家必须确为清一色（手牌+副露同口径，财神不参与）
+      const suits = R.handSuits(hand14, winner.melds, this.godTiles);
+      const hasNum = ['wan', 'tong', 'tiao'].some(s => suits.has(s));
+      if (suits.size === 1 && hasNum) {
+        reasons.push('清一色承包（对方已三摊' + T.SUIT_NAMES[dangerSuit] + '）');
+      }
+    }
+
+    // ③ 连碰三摊：赢家≥3个碰/杠类副露（吃不算）全部来自点炮者
+    const fedCount = winner.melds.filter(m =>
+      (m.type === 'peng' || m.type === 'gang' || m.type === 'bugang') && m.fromSeat === discarderSeat
+    ).length;
+    if (fedCount >= 3) reasons.push('连碰三摊承包');
+
+    return reasons;
   }
 
   /** 胡牌 */
   doHu(seat, tile, type, gangKai = false) {
     const p = this.getPlayer(seat);
     const hand14 = type === 'self' ? p.hand.slice() : p.hand.concat([tile]);
-    // 记录放炮者（点炮胡结算用）
+    // 记录放炮者（点炮胡结算用）+ 承包检测
     this.huPayerSeat = 0;
+    this.huChengBao = [];
     if (type === 'discard' && this.lastDiscard) {
       this.huPayerSeat = this.lastDiscard.seat;
+      this.huChengBao = this.checkChengBao(seat, this.lastDiscard.seat, tile, hand14);
+      if (this.huChengBao.length) {
+        this.pushLog('💥 ' + this.seatName(this.lastDiscard.seat) + ' 触发' + this.huChengBao.join('、') + '，包三家！');
+      }
       this.removeDiscard(tile);
     }
     this.pushLog(this.seatName(seat) + ' 胡牌！');
@@ -603,7 +744,7 @@ class Game {
     let tai = taiRes.tai;
     if (this.cap > 0 && tai > this.cap) tai = this.cap;
 
-    // 分差：自摸三家付；点炮点炮者付2倍
+    // 分差：自摸三家各付(台数)；点炮者付2倍；触发承包(硬家/清一色/连碰三摊)则包三家付3倍
     let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
     if (winType === 'self') {
       for (const s of SEATS) {
@@ -615,7 +756,8 @@ class Game {
     } else {
       const payer = this.huPayerSeat || 0;
       if (payer && payer !== winnerSeat) {
-        const pay = tai * 2 * this.bottom;
+        const chengBao = this.huChengBao && this.huChengBao.length > 0;
+        const pay = tai * (chengBao ? 3 : 2) * this.bottom;
         scores[payer] -= pay;
         scores[winnerSeat] += pay;
       }
@@ -629,11 +771,15 @@ class Game {
       meldsRaw: melds.map(m => Object.assign({}, m)),
       winTile: winTile ? T.tileToString(winTile) : null,
       tianhu, dihu, gangKai: gangKai || winner.gangKai,
+      chengBao: (this.huChengBao || []).slice(),
+      payerSeat: this.huPayerSeat || 0,
     };
     this.roundInfo = {
       winnerSeat, winnerName: this.seatName(winnerSeat),
       winType, tai, details: taiRes.details, scores,
       isHumanWin: winnerSeat === this.humanSeat,
+      chengBao: (this.huChengBao || []).slice(),
+      payerSeat: this.huPayerSeat || 0,
     };
     this.emit();
   }
@@ -644,6 +790,7 @@ class Game {
   humanDiscard(index) {
     if (this.phase !== 'waitHumanDiscard') return;
     this.clearThink(); // 打出即取消本回合倒计时
+    this.selfHu = null; // 选择打牌即放弃本次自摸
     const p = this.getPlayer(this.humanSeat);
     if (index < 0 || index >= p.hand.length) return;
     this.doDiscard(this.humanSeat, index);
@@ -652,6 +799,7 @@ class Game {
   /** 玩家声明决策 */
   humanClaim(action) {
     if (this.phase !== 'waitHumanClaim') return;
+    this.clearThink(); // 玩家已决定，取消声明倒计时
     const myClaim = this.pendingClaims.find(c => c.seat === this.humanSeat);
     if (!myClaim) return;
     if (action === 'hu') {
@@ -665,6 +813,7 @@ class Game {
       if (chis.length > 0) {
         this.needChiChoice = chis;
         this.phase = 'waitHumanChi';
+        this._scheduleHumanClaimTimer(); // 吃法选择同样 20s 倒计时
         this.emit();
       } else {
         // 无有效吃法 → 按过处理
@@ -680,6 +829,7 @@ class Game {
   /** 玩家选择吃法 */
   humanChiVariant(v) {
     if (this.phase !== 'waitHumanChi' || !this.needChiChoice) return;
+    this.clearThink();
     const chis = this.needChiChoice;
     this.needChiChoice = null;
     this.doChi(this.humanSeat, this.lastDiscard.tile, chis[v]);
@@ -718,7 +868,7 @@ class Game {
       if (m.type === 'peng' && T.countInHand(p.hand, m.tile) >= 1) {
         const idx = p.hand.findIndex(x => T.sameTile(x, m.tile));
         p.hand.splice(idx, 1);
-        p.melds = p.melds.map(x => x === m ? { type: 'bugang', tile: m.tile } : x);
+        p.melds = p.melds.map(x => x === m ? { type: 'bugang', tile: m.tile, fromSeat: m.fromSeat } : x);
         this.gangKaiSeat = this.humanSeat;
         this.pushLog(this.seatName(this.humanSeat) + ' 补杠 ' + T.tileToString(m.tile));
         this.afterGang(this.humanSeat);

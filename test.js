@@ -107,6 +107,55 @@ assert(R.canWin(h('t4t5t6b6b9f4w2w2f1f1'), GODS_XJ2, { seat: 1, melds: MELD_CHI1
 const MELD_CHI_PENG = MELD_CHI123.concat([{ type: 'peng', tile: { suit: 'feng', num: 1 } }]);
 assert(R.canWin(h('t4t5t6b6b9f4w2w2'), GODS_XJ2, { seat: 1, melds: MELD_CHI_PENG }) === true, '截图2-碰后：将2万+456筒+9条财神刻+自家风刻硬章 → 胡');
 
+console.log('== 胡牌分解 / 自摸按钮 / 财神抽回 ==');
+// winDecompose：截图2-碰后牌型 → 将2万 + 456筒 + 9条财神刻（财神嵌在组内）
+{
+  const hand = h('t4t5t6b6b9f4w2w2'); // 6条、北为财神
+  const decomp = R.winDecompose(hand, GODS_XJ2, { melds: [{}, {}] }); // 2 副露
+  assert(!!decomp, 'winDecompose 可分解');
+  const pairOk = decomp && decomp.pair[0].suit === 'wan' && decomp.pair[0].num === 2;
+  assert(pairOk, '将=二万');
+  const godSet = decomp && decomp.sets.find(g => g.some(t => R.isGod(t, GODS_XJ2)));
+  const godInSetOk = godSet && godSet.filter(t => R.isGod(t, GODS_XJ2)).length === 2
+    && godSet.some(t => t.suit === 'tiao' && t.num === 9);
+  assert(!!godInSetOk, '财神嵌在九条刻子组内（2 张财神 + 9条）');
+}
+// 自摸按钮制：玩家摸成胡不自动胡，挂起 selfHu，点 humanSelfHu 才胡
+{
+  const { Game } = require('./js/game');
+  const g = new Game({ humanSeat: 1 });
+  g.onUpdate = () => {};
+  g.start();
+  const me = g.getPlayer(1);
+  me.melds = [{ type: 'peng', tile: { suit: 'feng', num: 1 } }, { type: 'peng', tile: { suit: 'jian', num: 2 } }];
+  me.hand = h('b9b7b7j3j3w3w4'); // 财神=西+七条（构造缺二万）
+  g.godTiles = [{ suit: 'feng', num: 3 }, { suit: 'tiao', num: 7 }];
+  g.currentSeat = 1; g.phase = 'draw';
+  g.deck.push({ suit: 'wan', num: 2 });
+  g.doDraw(1);
+  assert(g.phase === 'waitHumanDiscard' && g.snapshot().selfHu === true, '玩家自摸不自动胡，挂起胡按钮');
+  g.humanSelfHu();
+  assert(g.phase === 'over' && g.winnerSeat === 1, '玩家点「胡」后结算');
+}
+// 财神抽回：财神碰碰中后用真中换回财神
+{
+  const { Game } = require('./js/game');
+  const g = new Game({ humanSeat: 1 });
+  g.onUpdate = () => {};
+  g.start();
+  const me = g.getPlayer(1);
+  g.godTiles = [{ suit: 'feng', num: 4 }, { suit: 'tiao', num: 6 }]; // 北+六条
+  // 副露：财神碰中（用 1 真中 + 1 财神北）
+  me.melds = [{ type: 'peng', tile: { suit: 'jian', num: 1 }, claimType: 'god', godTilesUsed: [{ suit: 'feng', num: 4 }] }];
+  me.hand = h('j1w2w3'); // 手牌有真中
+  assert(g.canSwapGod(1) === true, '有真中可换回财神');
+  const ok = g.swapGod(1);
+  const gotGod = me.hand.some(t => t.suit === 'feng' && t.num === 4);
+  const lostZhong = !me.hand.some(t => t.suit === 'jian' && t.num === 1);
+  assert(ok && gotGod && lostZhong, '抽回后：财神回手牌、真中入副露');
+  assert(me.melds[0].godTilesUsed.length === 0, '副露财神已清空');
+}
+
 console.log('== 台数计算 ==');
 const info = {
   hand: h('w1w2w3w4w5w6w7w8w9b1b2b3j3j3'),
@@ -126,6 +175,102 @@ const info2 = {
 const tai2 = R.calcTai(info2);
 console.log('  台数2:', tai2.tai, tai2.details.join(' / '));
 assert(tai2.details.some(d => d.includes('对座花牌')), '对座花牌计台');
+
+console.log('== 清一色口径回归（副露花色计入） ==');
+// 手牌全筒但副露有南风碰 → 应为混一色(+1)而非清一色(+3)
+const info3 = {
+  hand: h('t7t8t9t9t9'), godTiles: GODS, seat: 2, zhuangSeat: 1,
+  melds: [{ type: 'peng', tile: { suit: 'tong', num: 1 } }, { type: 'peng', tile: { suit: 'tong', num: 2 } }, { type: 'peng', tile: { suit: 'feng', num: 2 } }],
+  winType: 'discard', collectedFlowers: [],
+};
+const tai3 = R.calcTai(info3);
+assert(tai3.details.some(d => d.includes('混一色')) && !tai3.details.some(d => d.includes('清一色')), '副露有字牌→混一色而非清一色');
+// 手牌+副露全筒 → 清一色(+3)
+const info4 = {
+  hand: h('t7t8t9t9t9'), godTiles: GODS, seat: 2, zhuangSeat: 1,
+  melds: [{ type: 'peng', tile: { suit: 'tong', num: 1 } }, { type: 'peng', tile: { suit: 'tong', num: 2 } }, { type: 'chi', tile: { suit: 'tong', num: 4 }, tiles: [{ suit: 'tong', num: 4 }, { suit: 'tong', num: 5 }, { suit: 'tong', num: 6 }] }],
+  winType: 'discard', collectedFlowers: [],
+};
+const tai4 = R.calcTai(info4);
+assert(tai4.details.some(d => d.includes('清一色')), '手牌+副露全同色→清一色');
+
+console.log('== 点炮承包（包三家=3×） ==');
+const { Game } = require('./js/game');
+
+/** 构造受控对局：不 start()，手动摆牌后 doHu 点炮 */
+function makeChengBaoGame(winnerSeat, winnerHand, winnerMelds, discarderSeat, discarderHand, winTile) {
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS; // 东为财神
+  g.getPlayer(winnerSeat).hand = h(winnerHand);
+  g.getPlayer(winnerSeat).melds = winnerMelds || [];
+  g.getPlayer(discarderSeat).hand = h(discarderHand); // 打出后剩余13张
+  g.lastDiscard = { seat: discarderSeat, tile: winTile };
+  g.discards = [{ seat: discarderSeat, tile: winTile }];
+  g.doHu(winnerSeat, winTile, 'discard');
+  return g;
+}
+
+const ZHONG = { suit: 'jian', num: 1 };
+// 赢家通用手牌：123/456/789万 + 55条对 + 中中对（点中胡）
+const WIN_ON_ZHONG = 'w1w2w3w4w5w6w7w8w9b5b5j1j1'; // 台数=平1+硬碰硬1+硬家中1=3
+
+// ① 硬家承包：没听牌打中被胡 → 包三家（3×3=9）
+{
+  const g = makeChengBaoGame(2, WIN_ON_ZHONG, [], 1, 'w1w3w5w7w9t2t4t6t8b1b3b5b7', ZHONG);
+  assert(g.huChengBao.some(r => r.includes('硬家承包')), '① 没听牌打中→硬家承包');
+  assert(g.roundInfo.scores[1] === -9 && g.roundInfo.scores[2] === 9 && g.roundInfo.scores[3] === 0, '① 承包包三家：点炮者 -9，其余两家 0');
+}
+// ①b 对照：已听牌打中被胡 → 普通点炮（3×2=6）
+{
+  const g = makeChengBaoGame(2, WIN_ON_ZHONG, [], 1, 'w1w2w3w4w5w6w7w8b1b2b3j3j3', ZHONG);
+  assert(g.huChengBao.length === 0, '①b 已听牌打中→不承包');
+  assert(g.roundInfo.scores[1] === -6 && g.roundInfo.scores[2] === 6, '①b 普通点炮付2×');
+}
+// ② 清一色承包：三摊筒副露，打筒让对方清一色胡 → 包三家（台=平1+硬碰硬1+清一色3=5，5×3=15）
+{
+  const melds = [
+    { type: 'peng', tile: { suit: 'tong', num: 1 }, fromSeat: 2 },
+    { type: 'peng', tile: { suit: 'tong', num: 2 }, fromSeat: 2 },
+    { type: 'chi', tile: { suit: 'tong', num: 4 }, tiles: [{ suit: 'tong', num: 4 }, { suit: 'tong', num: 5 }, { suit: 'tong', num: 6 }], fromSeat: 2 },
+  ];
+  // 赢家 seat3 手牌 t7t8t9t9，点炮者 seat4（已听牌，证明规则②不看自己听不听）打 t9
+  const g = makeChengBaoGame(3, 't7t8t9t9', melds, 4, 'w1w2w3w4w5w6w7w8b1b2b3j3j3', { suit: 'tong', num: 9 });
+  assert(g.huChengBao.some(r => r.includes('清一色承包')), '② 三摊同花色+清一色→承包');
+  assert(g.roundInfo.scores[4] === -15 && g.roundInfo.scores[3] === 15, '② 承包包三家付3×');
+}
+// ②b 对照：三摊筒但赢家是混一色（手牌有风）→ 不承包（台=平1+硬碰硬1+混一色1=3，3×2=6）
+{
+  const melds = [
+    { type: 'peng', tile: { suit: 'tong', num: 1 }, fromSeat: 2 },
+    { type: 'peng', tile: { suit: 'tong', num: 2 }, fromSeat: 2 },
+    { type: 'chi', tile: { suit: 'tong', num: 4 }, tiles: [{ suit: 'tong', num: 4 }, { suit: 'tong', num: 5 }, { suit: 'tong', num: 6 }], fromSeat: 2 },
+  ];
+  const g = makeChengBaoGame(3, 't7t8f2f2', melds, 4, 'w1w2w3w4w5w6w7w8b1b2b3j3j3', { suit: 'tong', num: 9 });
+  assert(g.huChengBao.length === 0, '②b 混一色不算清一色承包');
+  assert(g.roundInfo.scores[4] === -6 && g.roundInfo.scores[3] === 6, '②b 普通点炮付2×');
+}
+// ③ 连碰三摊：赢家3个碰全来自点炮者 seat1，再点炮 → 包三家（台=平1+硬碰硬1=2，2×3=6）
+{
+  const melds = [
+    { type: 'peng', tile: { suit: 'wan', num: 1 }, fromSeat: 1 },
+    { type: 'peng', tile: { suit: 'wan', num: 2 }, fromSeat: 1 },
+    { type: 'peng', tile: { suit: 'wan', num: 3 }, fromSeat: 1 },
+  ];
+  const g = makeChengBaoGame(2, 'b5b5t7t8', melds, 1, 'w1w2w3w4w5w6w7w8b1b2b3j3j3', { suit: 'tiao', num: 6 });
+  assert(g.huChengBao.some(r => r.includes('连碰三摊')), '③ 连碰三摊→承包');
+  assert(g.roundInfo.scores[1] === -6 && g.roundInfo.scores[2] === 6, '③ 承包包三家付3×');
+}
+// ③b 对照：只有2摊来自点炮者 → 不承包（2×2=4）
+{
+  const melds = [
+    { type: 'peng', tile: { suit: 'wan', num: 1 }, fromSeat: 1 },
+    { type: 'peng', tile: { suit: 'wan', num: 2 }, fromSeat: 1 },
+    { type: 'peng', tile: { suit: 'wan', num: 3 }, fromSeat: 3 },
+  ];
+  const g = makeChengBaoGame(2, 'b5b5t7t8', melds, 1, 'w1w2w3w4w5w6w7w8b1b2b3j3j3', { suit: 'tiao', num: 6 });
+  assert(g.huChengBao.length === 0, '③b 仅2摊来自点炮者→不承包');
+  assert(g.roundInfo.scores[1] === -4 && g.roundInfo.scores[2] === 4, '③b 普通点炮付2×');
+}
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exit(fail > 0 ? 1 : 0);

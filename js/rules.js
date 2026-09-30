@@ -8,6 +8,11 @@
  *  - 台数：庄2平1、风头+1、硬家各+1、硬碰硬(无财神)+1、碰碰胡+1、杠开+1、
  *          齐花+1、齐季+1、混一色+1、清一色+3、地胡+3、天胡+4、对座花牌+1/张
  *  - 截胡：逆时针（座位号递增）近者优先；诈胡赔付
+ *  - 点炮承包（包三家=点炮者付3×台数，其余两家不付），三触发条件：
+ *    ① 硬家承包：自己没听牌打出中发白被胡
+ *    ② 清一色承包：赢家副露≥3摊同花色，再打同花色让其清一色胡
+ *    ③ 连碰三摊：赢家≥3个碰/杠副露全部来自点炮者，再点炮给他
+ *    （清一色判定含副露花色：副露有字牌则不是清一色）
  *
  * 座位约定：1东 2南 3西 4北，行牌方向座位号递增(1→2→3→4→1)，
  * 即东的下家是南；"上家"= 座位号递减方向 = ((seat+2)%4)+1
@@ -45,6 +50,19 @@ function countGods(hand, godTiles) {
 
 function countInHand(hand, tile) {
   return hand.filter(t => T.sameTile(t, tile)).length;
+}
+
+/**
+ * handSuits — 整副牌（手牌真牌 + 副露）涉及的花色集合，财神不参与。
+ * 清一色/混一色判定必须含副露花色（否则副露有字牌、手牌单色会被误判清一色）。
+ */
+function handSuits(hand, melds, godTiles) {
+  const suits = new Set(hand.filter(t => !isGod(t, godTiles)).map(t => t.suit));
+  for (const m of (melds || [])) {
+    if (m.type === 'chi' && m.tiles && m.tiles.length) suits.add(m.tiles[0].suit);
+    else if (m.tile) suits.add(m.tile.suit);
+  }
+  return suits;
 }
 
 /* ============ 胡牌判定（带财神） ============ */
@@ -133,8 +151,9 @@ function hasAnchor(rest, melds, gods, needSets, seat) {
     }
     if (c >= 3) return true;
   }
-  // ③ 成型结构·清一色 / 混一色（与 calcTai 同口径：财神不参与花色统计）
-  const suits = new Set(rest.map(t => t.suit));
+  // ③ 成型结构·清一色 / 混一色（与 calcTai 同口径：财神不参与花色统计，且含副露花色）
+  // rest 已剔除财神，godTiles 传 null 即可
+  const suits = handSuits(rest, melds, null);
   const hasNum = ['wan', 'tong', 'tiao'].some(s => suits.has(s));
   if (hasNum && suits.size === 1) return true;                                    // 清一色
   if (hasNum && suits.size === 2 && (suits.has('feng') || suits.has('jian'))) return true; // 混一色
@@ -461,8 +480,8 @@ function calcTai(info) {
   const seatFlower = collectedFlowers.filter(f => myF.includes(f.num)).length;
   if (seatFlower > 0) { tai += seatFlower; details.push('对座花牌 +' + seatFlower + '台'); }
 
-  // 清一色/混一色（财神牌不参与）
-  const nonGodSuits = new Set(hand.filter(t => !isGod(t, godTiles)).map(t => t.suit));
+  // 清一色/混一色（财神牌不参与；副露花色计入——副露有字牌则不算清一色）
+  const nonGodSuits = handSuits(hand, melds, godTiles);
   const hasNum = ['wan', 'tong', 'tiao'].some(s => nonGodSuits.has(s));
   if (nonGodSuits.size === 1 && hasNum) {
     tai += 3; details.push('清一色 +3台');
@@ -494,10 +513,81 @@ function minReplaceMeldsOnlyKong(tiles, godsLeft, needSets) {
   return best;
 }
 
+/* ============ 胡牌分解（结算展示用：财神嵌在实际使用位置） ============ */
+
+/** 递归拆面子（完整分解：所有真牌+财神必须全部用完），返回面子数组或 null */
+function solveMelds(tiles, godInst, needSets) {
+  if (needSets === 0) return (tiles.length === 0 && godInst.length === 0) ? [] : null;
+  if (tiles.length + godInst.length < needSets * 3) return null;
+  if (tiles.length === 0) {
+    if (godInst.length === needSets * 3) {
+      const sets = [];
+      for (let i = 0; i < needSets; i++) sets.push([godInst[i * 3], godInst[i * 3 + 1], godInst[i * 3 + 2]]);
+      return sets;
+    }
+    return null;
+  }
+  const first = tiles[0];
+  const c = countInHand(tiles, first);
+  // 1) 真牌刻子
+  if (c >= 3) {
+    const r = solveMelds(tiles.slice(c), godInst, needSets - 1);
+    if (r) return [[first, first, first], ...r];
+  }
+  // 2) 刻子 + 财神补缺（财神以真实牌面嵌在组内）
+  if (godInst.length >= 3 - c) {
+    const group = [];
+    for (let i = 0; i < c; i++) group.push(first);
+    const used = godInst.slice(0, 3 - c);
+    const r = solveMelds(tiles.slice(c), godInst.slice(3 - c), needSets - 1);
+    if (r) return [[...group, ...used], ...r];
+  }
+  // 3) 顺子 + 财神补位
+  if ((first.suit === 'wan' || first.suit === 'tong' || first.suit === 'tiao') && first.num <= 7) {
+    const want = [first, { suit: first.suit, num: first.num + 1 }, { suit: first.suit, num: first.num + 2 }];
+    const rem = tiles.slice();
+    const gods = godInst.slice();
+    const group = [];
+    let ok = true;
+    for (const x of want) {
+      const idx = rem.findIndex(t2 => T.sameTile(t2, x));
+      if (idx >= 0) group.push(rem.splice(idx, 1)[0]);
+      else if (gods.length > 0) group.push(gods.shift());
+      else { ok = false; break; }
+    }
+    if (ok) {
+      const r = solveMelds(rem, gods, needSets - 1);
+      if (r) return [group, ...r];
+    }
+  }
+  return null;
+}
+
+/**
+ * winDecompose — 把胡牌手牌分解成 { pair: [将,将], sets: [[面子3张], ...] }
+ * 财神以真实牌面嵌在它实际补齐的组里（结算界面"财神用在哪里就放在哪里"）。
+ * 与 winReplace 同规则；分解不出返回 null（调用方兜底平铺展示）。
+ */
+function winDecompose(hand, godTiles, opts = {}) {
+  const needSets = 4 - (opts.melds || []).length;
+  const godInst = hand.filter(t => isGod(t, godTiles));
+  const rest = hand.filter(t => !isGod(t, godTiles)).sort((a, b) => T.tileSortKey(a) - T.tileSortKey(b));
+  const cnt = T.countTiles(rest);
+  for (const [k, v] of cnt) {
+    if (v < 2) continue;
+    const [suit, num] = k.split('|');
+    const pairTile = { suit, num: parseInt(num, 10) };
+    const remaining = removeN(rest, pairTile, 2);
+    const sets = solveMelds(remaining, godInst.slice(), needSets);
+    if (sets) return { pair: [pairTile, pairTile], sets };
+  }
+  return null;
+}
+
 const RULES = {
-  WIN_INF, diceToSeat, buildGodTiles, isGod, countGods, countInHand,
+  WIN_INF, diceToSeat, buildGodTiles, isGod, countGods, countInHand, handSuits,
   winReplace, canWin, shanten, winAfterDraw, isSevenPairs, isTenpai, allDrawableTiles,
-  canChi, canPeng, canGang, canBuGang, isFlower, calcTai
+  canChi, canPeng, canGang, canBuGang, isFlower, calcTai, winDecompose
 };
 
 if (typeof module !== 'undefined' && module.exports) {
