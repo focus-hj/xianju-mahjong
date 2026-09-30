@@ -80,6 +80,7 @@ class Game {
     this.needChiChoice = null; // 待玩家选择吃法
     this.autoPassTimer = null;
     this.gangKaiSeat = 0;      // 刚杠完的座位（杠后补牌标记）
+    this.lastDrawn = null;     // 刚摸上来的牌 {seat, tile}（UI 圈示用），打出后清空
   }
 
   /** 记录日志 */
@@ -168,6 +169,8 @@ class Game {
       log: this.log.slice(-6),
       // 人机思考倒计时（无则为 null）
       thinking: this.thinkInfo ? { seat: this.thinkInfo.seat, kind: this.thinkInfo.kind, startedAt: this.thinkInfo.startedAt, until: this.thinkInfo.until } : null,
+      // 刚摸上来的牌（仅用于 UI 圈示；打出后为 null）
+      lastDrawn: this.lastDrawn ? { seat: this.lastDrawn.seat, tile: this.lastDrawn.tile } : null,
     };
   }
 
@@ -225,6 +228,7 @@ class Game {
       count++;
       if (this.deck.length === 0) break;
       p.hand.push(this.deck.pop()); // 从尾部补牌
+      if (!isStart) this.lastDrawn = { seat, tile: p.hand[p.hand.length - 1] }; // 补进的牌也圈示
     }
     if (count > 0) {
       this.pushLog(this.seatName(seat) + ' 补花 ' + count + ' 张');
@@ -270,6 +274,7 @@ class Game {
     const p = this.getPlayer(seat);
     const tile = this.deck.pop();
     p.hand.push(tile);
+    this.lastDrawn = { seat, tile }; // 记录刚摸上来的牌（若补花，buHua 会覆盖为补进的最后一张）
     p.gangKai = this.gangKaiSeat === seat; // 杠后摸的牌标记
     this.pushLog(this.seatName(seat) + ' 摸牌 ' + (p.isHuman ? T.tileToString(tile) : ''));
     // 补花
@@ -320,6 +325,7 @@ class Game {
     const tile = p.hand.splice(index, 1)[0];
     this.discards.push({ seat, tile });
     this.lastDiscard = { seat, tile };
+    this.lastDrawn = null; // 打出后，"刚摸上来的牌"圈示消失
     p.gangKai = false;
     this.gangKaiSeat = 0;
     this.pushLog(this.seatName(seat) + ' 打出 ' + T.tileToString(tile));
@@ -524,6 +530,7 @@ class Game {
     if (this.deck.length === 0) { this.drawGame = true; return this.finish(0, 'draw', null, null, false); }
     const tile = this.deck.pop();
     p.hand.push(tile);
+    this.lastDrawn = { seat, tile }; // 杠后补的牌也圈示（若补花，buHua 覆盖为最后一张）
     p.gangKai = true;
     this.pushLog(this.seatName(seat) + ' 杠后补牌');
     if (tile.suit === 'flower') {

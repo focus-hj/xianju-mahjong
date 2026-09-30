@@ -58,6 +58,8 @@
   /* ============ 快照渲染 ============ */
 
   function render(snap) {
+    // 非"轮到我出牌"阶段一律清空选中态（防止超时自动出牌后选中圈残留在手牌上）
+    if (snap.phase !== 'waitHumanDiscard') selectedIdx = -1;
     // 财神标记
     $('god-tag').textContent = '财神: ' + snap.godTiles.map(T.tileToString).join(' ');
     $('wall-info').textContent = '牌墙 ' + snap.wallLeft;
@@ -158,6 +160,10 @@
     const handRow = $('my-hand');
     if (handRow) {
       handRow.innerHTML = '';
+      // 刚摸上来的牌（手牌数组最后一张）：轮到我出牌时圈示，打出后自动消失
+      const drawnIdx = (snap.phase === 'waitHumanDiscard' && snap.lastDrawn && snap.lastDrawn.seat === 1
+        && me.hand.length && T.sameTile(me.hand[me.hand.length - 1], snap.lastDrawn.tile))
+        ? me.hand.length - 1 : -1;
       const sorted = me.hand.map((t, i) => ({ t, i }));
       sorted.sort((a, b) => suitOrder(a.t) - suitOrder(b.t));
       sorted.forEach(({ t, i }) => {
@@ -167,6 +173,8 @@
         }
         // 标记财神
         if (R.isGod(t, snap.godTiles)) el.classList.add('god-mark');
+        // 圈示刚摸上来的牌
+        if (i === drawnIdx) el.classList.add('drawn');
         if (i === selectedIdx) el.classList.add('selected');
         el.dataset.idx = i;
         el.addEventListener('click', () => onMyTileClick(i, el));

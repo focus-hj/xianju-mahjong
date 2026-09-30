@@ -117,6 +117,13 @@ body {
 .tile.small { width: 35px; height: 42px; }
 .tile.tiny { width: 26px; height: 31px; cursor: default; }
 .tile.god-mark { outline: 2px solid #f39c12; outline-offset: 1px; z-index: 2; border-radius: 5px; }
+/* 刚摸上来的牌：青色圈 + 微抬，与金色选中态区分 */
+.tile.drawn { transform: translateY(-6px); }
+.tile.drawn::after {
+  content: ''; position: absolute; inset: -3px; border: 2px solid #4dd0e1; border-radius: 7px;
+  box-shadow: 0 0 8px rgba(77,208,225,.85); pointer-events: none;
+}
+.tile.drawn.selected { transform: translateY(-11px); }
 
 /* 玩家手牌 */
 #player-area { flex: 0 0 auto; padding: 6px 16px 8px; background: rgba(0,0,0,.28); border-top: 1px solid rgba(255,255,255,.1); }
