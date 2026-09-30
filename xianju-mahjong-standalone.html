@@ -60,7 +60,11 @@ body {
 .seat-name { color: #ffd76a; font-weight: 600; background: rgba(0,0,0,.3); padding: 1px 6px; border-radius: 3px; }
 .opp-info .is-dealer { color: #e74c3c; }
 .opp-tiles { font-size: 12px; color: #c8d6c0; background: rgba(0,0,0,.25); padding: 1px 8px; border-radius: 3px; }
-.opp-melds, .opp-flowers { font-size: 11px; color: #aed6a0; }
+.opp-melds { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 170px; min-height: 0; }
+.opp-melds:empty { display: none; }
+.opp-meld { background: rgba(255,255,255,.08); padding: 1px; border-radius: 3px; }
+.opp-meld-back { width: 16px; height: 20px; background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbDpzcGFjZT0icHJlc2VydmUiIGlkPSJzdmcyOTg1IiB4PSIwIiB5PSIwIiBzdHlsZT0iZW5hYmxlLWJhY2tncm91bmQ6bmV3IC0xOTIgMjkzLjkgMjEwIDI1NSIgdmVyc2lvbj0iMS4xIiB2aWV3Qm94PSItMTkyIDI5My45IDIxMCAyNTUiPjxzdHlsZT4uc3Q1e2ZpbGw6I2ZmZn08L3N0eWxlPjxzd2l0Y2g+PGc+PGZpbHRlciBpZD0iZmlsdGVyMzk3MC01IiB3aWR0aD0iMS4yMTciIGhlaWdodD0iMS4yMTUiIHg9Ii0uMTA5IiB5PSItLjEwOCIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj48ZmVHYXVzc2lhbkJsdXIgaWQ9ImZlR2F1c3NpYW5CbHVyMzk3Mi04IiBzdGREZXZpYXRpb249Ii4xMjgiLz48L2ZpbHRlcj48ZyBpZD0iZzQ2MzAiIHN0eWxlPSJlbmFibGUtYmFja2dyb3VuZDpuZXciIHRyYW5zZm9ybT0ibWF0cml4KDEuMDAwNiAwIDAgMSAtMS4zNzYgMjAzLjQwNikiPjxnIGlkPSJnMzA2MiI+PHBhdGggaWQ9InJlY3Q0MDMxIiBkPSJtLTEzMS4yIDkwLjUgNDYuMS4yIDY4LjQtLjJjMjIuOS0uMSAzNi4xIDE1LjkgMzYuMSA0MC40djE1NC42YzAgMTIuMy0xNCAyNy43LTIxLjQgMzUuN3MtMjIuMSAyNC4zLTMzLjYgMjQuM2gtMTEzYy0yMi45IDAtNDEuMy01LjYtNDEuMy0zMC4ybC0uMy0xNjIuM2MwLTYuNCAxNy4zLTI0LjMgMjQuOC0zMi40IDcuNC04IDIyLjctMzAuMiAzNC4yLTMwLjEiLz48cGF0aCBpZD0icmVjdDM3NjciIGQ9Ik0tMTIyLjQgMTAzLjJoMTA0LjVjMTMuOCAwIDI0LjggMTEuMSAyNC45IDI0LjlsLjkgMTUyLjRjMCAyLTEyLjYgMzItMjUuOCAzMmgtMTA0LjVjLTEzLjggMC0yNC45LTExLjEtMjQuOS0yNC45VjEyOC4xYzAtMTMuOCAxMS4xLTI0LjkgMjQuOS0yNC45IiBzdHlsZT0iZmlsbDojY2RkYWNkIi8+PHBhdGggaWQ9InJlY3QzODYxIiBkPSJNLTEzNy40IDExOC4xaDk5LjZjMTMuNyAwIDI0LjkgMTEuMiAyNC45IDI0Ljl2MTU5LjVjMCAxMy44LTExLjEgMjQuOS0yNC45IDI0LjloLTk5LjZjLTEzLjcgMC0yNC45LTExLjItMjQuOS0yNC45VjE0My4xYzAtMTMuOCAxMS4yLTI1IDI0LjktMjUiIHN0eWxlPSJmaWxsOiMwNTNkMDUiLz48cGF0aCBpZD0icmVjdDM3NjUiIGQ9Ik0tMTQ3LjMgMTMzLjFoMTA0LjVjMTMuNyAwIDI0LjkgMTEuMiAyNC45IDI0Ljl2MTQ5LjVjMCAxMy44LTExLjEgMjQuOS0yNC45IDI0LjloLTEwNC41Yy0xMy43IDAtMjQuOS0xMS4yLTI0LjktMjQuOVYxNThjMC0xMy43IDExLjEtMjQuOSAyNC45LTI0LjkiIHN0eWxlPSJmaWxsOiMwMjRjMDIiLz48cGF0aCBpZD0icmVjdDMwMDgiIGQ9Ik0tMTU3LjMgMTQzLjFoMTA5LjVjMTEgMCAxOS45IDguOSAxOS45IDE5Ljl2MTQ5LjVjMCAxMS04LjkgMTkuOS0xOS45IDE5LjloLTEwOS41Yy0xMSAwLTE5LjktOC45LTE5LjktMTkuOVYxNjNjMC0xMSA4LjktMTkuOSAxOS45LTE5LjkiIHN0eWxlPSJmaWxsOiMwMDVmMDAiLz48cGF0aCBpZD0icGF0aDM5MzIiIGQ9Ik0yLjIgMTE1LjdjMCAxLjUtMS4zIDIuOC0yLjggMi44cy0yLjgtMS4zLTIuOC0yLjggMS4zLTIuOCAyLjgtMi44IDIuOCAxLjIgMi44IDIuOCIgY2xhc3M9InN0NSIvPjxwYXRoIGlkPSJwYXRoMzg4MiIgZD0iTS0xNSAxMzcuNmMwIDQuOC0zLjkgOC43LTguNyA4LjctNC44IDAtOC43LTMuOS04LjctOC43IDAtNC44IDMuOS04LjcgOC43LTguNyA0LjcgMCA4LjcgMy45IDguNyA4LjciIGNsYXNzPSJzdDUiLz48ZyBpZD0icGF0aDM5MzYiIHN0eWxlPSJmaWx0ZXI6dXJsKCNmaWx0ZXIzOTcwLTUpIj48bGluZWFyR3JhZGllbnQgaWQ9IlNWR0lEXzFfIiB4MT0iLTMxNS43NzEiIHgyPSItMzE4Ljg4NyIgeTE9IjU5MC40NyIgeTI9IjU4Ny4wMDEiIGdyYWRpZW50VHJhbnNmb3JtPSJtYXRyaXgoNy4xMDEzIDAgMCAtNi42ODg3IDIyNDMuNjE2IDQwNjEuMjY1KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIG9mZnNldD0iMCIgc3R5bGU9InN0b3AtY29sb3I6I2ZmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3R5bGU9InN0b3AtY29sb3I6I2ZmZjtzdG9wLW9wYWNpdHk6MCIvPjwvbGluZWFyR3JhZGllbnQ+PHBhdGggZD0ibS0yLjggMTE0LjMtMjguOCAyNC42IDguMiA2IDI1LjItMjguM3oiIHN0eWxlPSJmaWxsOnVybCgjU1ZHSURfMV8pIi8+PC9nPjwvZz48L2c+PC9nPjwvc3dpdGNoPjwvc3ZnPg==") center / cover no-repeat; border-radius: 2px; }
+.opp-flowers { font-size: 11px; color: #aed6a0; }
 .opp.thinking .seat-name { background: rgba(255,215,106,.28); box-shadow: 0 0 6px rgba(255,215,106,.45); }
 @keyframes thinkPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
 
@@ -283,17 +287,20 @@ body.mobile .act-btn { padding: 8px 14px; font-size: 13px; }
   <div id="table-main">
     <!-- 对家：西家（上方） -->
     <div class="opp" id="opp-3">
-      <div class="opp-info"><span class="seat-name">西家</span><span class="opp-tiles"></span><span class="opp-melds"></span><span class="opp-flowers"></span></div>
+      <div class="opp-info"><span class="seat-name">西家</span><span class="opp-tiles"></span><span class="opp-flowers"></span></div>
+      <div class="opp-melds"></div>
       <div class="opp-hand" id="hand-3"></div>
     </div>
     <!-- 上家：北家（左方） -->
     <div class="opp" id="opp-4">
-      <div class="opp-info"><span class="seat-name">北家</span><span class="opp-tiles"></span><span class="opp-melds"></span><span class="opp-flowers"></span></div>
+      <div class="opp-info"><span class="seat-name">北家</span><span class="opp-tiles"></span><span class="opp-flowers"></span></div>
+      <div class="opp-melds"></div>
       <div class="opp-hand v" id="hand-4"></div>
     </div>
     <!-- 下家：南家（右方） -->
     <div class="opp" id="opp-2">
-      <div class="opp-info"><span class="seat-name">南家</span><span class="opp-tiles"></span><span class="opp-melds"></span><span class="opp-flowers"></span></div>
+      <div class="opp-info"><span class="seat-name">南家</span><span class="opp-tiles"></span><span class="opp-flowers"></span></div>
+      <div class="opp-melds"></div>
       <div class="opp-hand v" id="hand-2"></div>
     </div>
 
@@ -2276,13 +2283,31 @@ if (typeof module !== 'undefined' && module.exports) {
       }
       const tilesEl = opp.querySelector('.opp-tiles');
       if (tilesEl) tilesEl.textContent = p.handCount + ' 张';
+      // 副露：真实牌面展示（不写汉字）；暗杠对其他人只露牌背
       const meldEl = opp.querySelector('.opp-melds');
-      if (meldEl) meldEl.textContent = p.melds.map(m => {
-        if (m.type === 'gang') return (m.isAn ? '暗杠' : '杠') + T.tileToString(m.tile);
-        if (m.type === 'peng') return '碰' + T.tileToString(m.tile);
-        if (m.type === 'chi') return '吃' + (m.tile ? T.tileToString(m.tile) : '');
-        return '';
-      }).join(' ');
+      if (meldEl) {
+        meldEl.innerHTML = '';
+        p.melds.forEach(m => {
+          const wrap = document.createElement('div');
+          wrap.className = 'meld opp-meld';
+          if (m.type === 'chi' && m.tiles) {
+            m.tiles.forEach(tt => wrap.appendChild(makeTileEl(tt, { tiny: true })));
+          } else {
+            const cnt = (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
+            const isAnGang = m.type === 'gang' && m.isAn;
+            for (let i = 0; i < cnt; i++) {
+              if (isAnGang) {
+                const back = document.createElement('div');
+                back.className = 'back-tile opp-meld-back';
+                wrap.appendChild(back);
+              } else {
+                wrap.appendChild(makeTileEl(m.tile, { tiny: true }));
+              }
+            }
+          }
+          meldEl.appendChild(wrap);
+        });
+      }
       const flowerEl = opp.querySelector('.opp-flowers');
       if (flowerEl) flowerEl.textContent = p.flowers.length ? '🌸×' + p.flowers.length : '';
       // 背面手牌
@@ -2403,11 +2428,11 @@ if (typeof module !== 'undefined' && module.exports) {
         clock.className = '';
       }
     }
-    // 顶栏提示（短文案，适配手机窄屏）
+    // 顶栏提示（短文案，按倒计时类型区分措辞，适配手机窄屏）
     const hint = $('turn-info');
     if (info && hint) {
       hint.textContent = info.seat === 1
-        ? '你出牌 · ' + remain + 's'
+        ? (info.kind === 'claim' ? '请决定 · ' + remain + 's' : '你出牌 · ' + remain + 's')
         : T.FENG_NAMES[info.seat - 1] + '家 · ' + remain + 's';
     }
     // 有倒计时进行时启动自刷新，没有则停掉

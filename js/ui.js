@@ -90,13 +90,31 @@
       }
       const tilesEl = opp.querySelector('.opp-tiles');
       if (tilesEl) tilesEl.textContent = p.handCount + ' 张';
+      // 副露：真实牌面展示（不写汉字）；暗杠对其他人只露牌背
       const meldEl = opp.querySelector('.opp-melds');
-      if (meldEl) meldEl.textContent = p.melds.map(m => {
-        if (m.type === 'gang') return (m.isAn ? '暗杠' : '杠') + T.tileToString(m.tile);
-        if (m.type === 'peng') return '碰' + T.tileToString(m.tile);
-        if (m.type === 'chi') return '吃' + (m.tile ? T.tileToString(m.tile) : '');
-        return '';
-      }).join(' ');
+      if (meldEl) {
+        meldEl.innerHTML = '';
+        p.melds.forEach(m => {
+          const wrap = document.createElement('div');
+          wrap.className = 'meld opp-meld';
+          if (m.type === 'chi' && m.tiles) {
+            m.tiles.forEach(tt => wrap.appendChild(makeTileEl(tt, { tiny: true })));
+          } else {
+            const cnt = (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
+            const isAnGang = m.type === 'gang' && m.isAn;
+            for (let i = 0; i < cnt; i++) {
+              if (isAnGang) {
+                const back = document.createElement('div');
+                back.className = 'back-tile opp-meld-back';
+                wrap.appendChild(back);
+              } else {
+                wrap.appendChild(makeTileEl(m.tile, { tiny: true }));
+              }
+            }
+          }
+          meldEl.appendChild(wrap);
+        });
+      }
       const flowerEl = opp.querySelector('.opp-flowers');
       if (flowerEl) flowerEl.textContent = p.flowers.length ? '🌸×' + p.flowers.length : '';
       // 背面手牌
@@ -217,11 +235,11 @@
         clock.className = '';
       }
     }
-    // 顶栏提示（短文案，适配手机窄屏）
+    // 顶栏提示（短文案，按倒计时类型区分措辞，适配手机窄屏）
     const hint = $('turn-info');
     if (info && hint) {
       hint.textContent = info.seat === 1
-        ? '你出牌 · ' + remain + 's'
+        ? (info.kind === 'claim' ? '请决定 · ' + remain + 's' : '你出牌 · ' + remain + 's')
         : T.FENG_NAMES[info.seat - 1] + '家 · ' + remain + 's';
     }
     // 有倒计时进行时启动自刷新，没有则停掉

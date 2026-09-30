@@ -48,7 +48,11 @@ body {
 .seat-name { color: #ffd76a; font-weight: 600; background: rgba(0,0,0,.3); padding: 1px 6px; border-radius: 3px; }
 .opp-info .is-dealer { color: #e74c3c; }
 .opp-tiles { font-size: 12px; color: #c8d6c0; background: rgba(0,0,0,.25); padding: 1px 8px; border-radius: 3px; }
-.opp-melds, .opp-flowers { font-size: 11px; color: #aed6a0; }
+.opp-melds { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 170px; min-height: 0; }
+.opp-melds:empty { display: none; }
+.opp-meld { background: rgba(255,255,255,.08); padding: 1px; border-radius: 3px; }
+.opp-meld-back { width: 16px; height: 20px; background: url("assets/tiles/MJback.svg") center / cover no-repeat; border-radius: 2px; }
+.opp-flowers { font-size: 11px; color: #aed6a0; }
 .opp.thinking .seat-name { background: rgba(255,215,106,.28); box-shadow: 0 0 6px rgba(255,215,106,.45); }
 @keyframes thinkPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
 
