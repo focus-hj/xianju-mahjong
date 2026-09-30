@@ -100,23 +100,51 @@ function minReplaceMelds(tiles, godsLeft, needSets) {
 /**
  * winReplace — 最小替换张数（0=已胡；1=听；2=一向听...）
  * 将(雀头)必须为真实对子（财神不能做脚）。
- * 锚规则（仙居）：用财神补面子时，手牌中必须存在"硬家(中发白)"或
- * "自家风头"的 对子/刻子，财神才能参与替牌；将可以是任意真对。
- * 原文："拥有财神无硬家或自家风头，财神不可替不能胡；
- *        有一对硬家或自家风头，财神可替，可等胡。"
- * @param opts { requireAnchor: 用财神时要求硬家/自家风锚, seat: 座位号 }
+ * 硬章规则（仙居）：手牌含财神时，必须有硬章财神才能参与胡牌——
+ * 硬章 = 中发白刻子 / 自家风刻子（均含副露）/ 成型结构(清一色、混一色、对对胡)；
+ * 花牌不算硬章。将可以是任意真对。
+ * @param opts { requireAnchor: 用财神时要求硬章, seat: 座位号, melds: 副露 }
  */
 
-/** 手牌中是否存在 硬家(中发白) 或 自家风 的对子/刻子 */
-function hasAnchor(hand, seat) {
+/**
+ * 硬章（用财神胡牌的前提）——仙居规则：
+ *   ① 中发白刻子（手牌真牌+副露合计 ≥3 张；财神不算，花牌不算）
+ *   ② 自家风刻子（座位风，手牌真牌+副露合计 ≥3 张）
+ *   ③ 成型结构：清一色 / 混一色 / 对对胡（对对胡允许财神补刻）
+ * 注意：别家风、风牌对子、中发白对子（非刻）都不算硬章。
+ */
+function hasAnchor(rest, melds, gods, needSets, seat) {
+  const meldAdd = (m) => (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
+  // ① 中发白刻子（副露的碰/杠/补杠计入）
   for (const n of [1, 2, 3]) {
-    if (countInHand(hand, { suit: 'jian', num: n }) >= 2) return true;
+    let c = countInHand(rest, { suit: 'jian', num: n });
+    for (const m of (melds || [])) {
+      if (m.tile && m.tile.suit === 'jian' && m.tile.num === n) c += meldAdd(m);
+    }
+    if (c >= 3) return true;
   }
-  // 自家风（东家→东风...）
-  if (seat > 0 && countInHand(hand, { suit: 'feng', num: seat }) >= 2) return true;
-  // 无 seat 时宽松兜底：任意风对子也算锚（用于无座位上下文的判定）
-  for (const n of [1, 2, 3, 4]) {
-    if (countInHand(hand, { suit: 'feng', num: n }) >= 2) return true;
+  // ② 自家风刻子（座位风；副露计入）
+  if (seat > 0) {
+    let c = countInHand(rest, { suit: 'feng', num: seat });
+    for (const m of (melds || [])) {
+      if (m.tile && m.tile.suit === 'feng' && m.tile.num === seat) c += meldAdd(m);
+    }
+    if (c >= 3) return true;
+  }
+  // ③ 成型结构·清一色 / 混一色（与 calcTai 同口径：财神不参与花色统计）
+  const suits = new Set(rest.map(t => t.suit));
+  const hasNum = ['wan', 'tong', 'tiao'].some(s => suits.has(s));
+  if (hasNum && suits.size === 1) return true;                                    // 清一色
+  if (hasNum && suits.size === 2 && (suits.has('feng') || suits.has('jian'))) return true; // 混一色
+  // ③ 成型结构·对对胡（无吃副露；剩余真牌+财神能全成刻子+真将）
+  if (!(melds || []).some(m => m.type === 'chi')) {
+    const cnt = T.countTiles(rest);
+    for (const [k, v] of cnt) {
+      if (v < 2) continue;
+      const [suit, num] = k.split('|');
+      const rem = removeN(rest, { suit, num: parseInt(num, 10) }, 2);
+      if (minReplaceMeldsOnlyKong(rem, gods, needSets) === 0) return true;
+    }
   }
   return false;
 }
@@ -131,8 +159,8 @@ function winReplace(hand, godTiles, opts = {}) {
   const rest = hand.filter(t => !isGod(t, godTiles)).sort((a, b) => T.tileSortKey(a) - T.tileSortKey(b));
   const cnt = T.countTiles(rest);
 
-  // 锚规则：若手中有财神，且牌型中不存在硬家/自家风的对或刻，则财神无法参与胡牌
-  if (requireAnchor && gods > 0 && !hasAnchor(rest, seat)) {
+  // 锚规则：若手中有财神，且不存在硬章（中发白刻/自家风刻/清一色/混一色/对对胡），财神无法参与胡牌
+  if (requireAnchor && gods > 0 && !hasAnchor(rest, opts.melds || [], gods, needSets, seat)) {
     return WIN_INF;
   }
 
@@ -331,6 +359,7 @@ function canChi(hand, discardTile, seat, lastDiscardSeat) {
 
 /** 碰：金碰(2真牌) > 财神碰(1真牌+1财神) > 双夹(2财神) */
 function canPeng(hand, discardTile, godTiles) {
+  // 仙居规则：碰可以用财神——金碰(2真牌) > 财神碰(1真1财神) > 双夹(2财神)
   const real = countInHand(hand, discardTile);
   const gods = countGods(hand, godTiles);
   if (real >= 2) return { type: 'gold' };

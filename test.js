@@ -25,10 +25,20 @@ assert(R.canWin(h('w1w2w3w4w5w6w7w8w9b1b2j3j3'), GODS) === false, '13张不是�
 assert(R.isSevenPairs(h('w1w1w2w2w3w3b4b4b5b5f2f2f3f3'), GODS) === true, '七对（无财神）');
 
 console.log('== 财神替牌 ==');
-// 东风财神替9万：123万 456万 78万+东=789万 123条 白板对
-assert(R.canWin(h('w1w2w3w4w5w6w7w8f1b1b2b3j3j3'), GODS) === true, '财神替9万成顺胡');
+// 东风财神替9万：123万 456万 78万+东=789万 123条 白板对——但无硬章（白只是对子），新规则下不可胡
+assert(R.canWin(h('w1w2w3w4w5w6w7w8f1b1b2b3j3j3'), GODS) === false, '财神替牌但无硬章（白板只是对子）不可胡');
+// 同结构但加白板刻子做硬章：123万 456万 789万(神替) 白白白刻 + 将1条1条 → 可胡
+assert(R.canWin(h('w1w2w3w4w5w6w7w8f1j3j3j3b1b1'), GODS) === true, '财神替9万成顺胡（白刻做硬章）');
 // 财神做将：123 456 789万 + 123条 + 白+东(=白对) → 将用财神 → 不可
 assert(R.canWin(h('w1w2w3w4w5w6w7w8w9b1b2b3j3f1'), GODS) === false, '财神不能做将');
+
+console.log('== 硬章新形态（清一色/混一色/对对胡成型即硬章） ==');
+// 对对胡成型：将5万5万 + 7万刻/2条刻/九筒刻 + 發發+东(神)替成發刻 → 可胡
+assert(R.canWin(h('w5w5w7w7w7b2b2b2j2j2f1t9t9t9'), GODS, { seat: 1 }) === true, '对对胡成型可用财神胡');
+// 混一色成型：123万456万 789万(神替) 南南南刻 + 将西西 → 万+风 两色 → 可胡
+assert(R.canWin(h('w1w2w3w4w5w6w7w8f1f2f2f2f3f3'), GODS, { seat: 1 }) === true, '混一色成型可用财神胡');
+// 清一色成型：1万2万3万刻 + 78万+东(神)替成789万 + 将4万4万 → 可胡
+assert(R.canWin(h('w1w1w1w2w2w2w3w3w3w4w4f1w7w8'), GODS, { seat: 1 }) === true, '清一色成型可用财神胡');
 
 console.log('== 锚规则回归（用户反馈场景） ==');
 // 用户截图：财神=南+中；手牌 發發發 六七八萬 一二三筒 四五条 南(财神) 五萬五萬
