@@ -2390,14 +2390,14 @@ if (typeof module !== 'undefined' && module.exports) {
     if (game && game.destroy) game.destroy(); // 清掉旧对局的人机思考计时器
     game = new GameClass({
       humanSeat: 1, bottom: 1, cap: 0,
-      // 出牌统一 20s 倒计时：所有玩家规则相同——在倒计时 20~1s 之间的随机时刻出牌
+      // 出牌统一 20s 倒计时显示；AI 在 0.5~3s 内随机打出（即倒计时 17s 之前必出完）
       thinkDelayMs: (seat, kind) => {
         if (kind === 'claim') {
-          // 声明决策（吃/碰/杠/胡）：0.5 ~ 4s 短思考
-          return 500 + Math.floor(Math.random() * 3500);
+          // 声明决策（吃/碰/杠/胡）：0.5 ~ 2s 短思考
+          return 500 + Math.floor(Math.random() * 1500);
         }
-        // 出牌：1~19s 后打出（即倒计时走到 19~1s 之间的随机时刻）
-        return 1000 + Math.floor(Math.random() * 18000);
+        // AI 出牌：0.5~3s 内随机
+        return 500 + Math.floor(Math.random() * 2500);
       },
       // 人类玩家同样 20s 倒计时，超时未出牌 → 随机打出一张
       humanTimeoutMs: 20000,
