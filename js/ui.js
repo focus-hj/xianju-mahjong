@@ -102,13 +102,19 @@
           } else {
             const cnt = (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
             const isAnGang = m.type === 'gang' && m.isAn;
+            const godsUsed = m.godTilesUsed || [];
             for (let i = 0; i < cnt; i++) {
               if (isAnGang) {
                 const back = document.createElement('div');
                 back.className = 'back-tile opp-meld-back';
                 wrap.appendChild(back);
-              } else {
+              } else if (i < cnt - godsUsed.length) {
                 wrap.appendChild(makeTileEl(m.tile, { tiny: true }));
+              } else {
+                // 压着的财神直接展示（带黄膜）
+                const el = makeTileEl(godsUsed[i - (cnt - godsUsed.length)], { tiny: true });
+                el.classList.add('god-mark');
+                wrap.appendChild(el);
               }
             }
           }
@@ -161,23 +167,20 @@
       me.melds.forEach(m => {
         const wrap = document.createElement('div');
         wrap.className = 'meld';
-        // 副露里压着财神（财神碰/双夹）→ 加小标记，提示可抽回
-        if ((m.godTilesUsed || []).length > 0) {
-          const badge = document.createElement('span');
-          badge.className = 'meld-god-badge';
-          badge.textContent = '神×' + m.godTilesUsed.length;
-          wrap.appendChild(badge);
-        }
         if (m.type === 'chi' && m.tiles) {
           m.tiles.forEach(tt => wrap.appendChild(makeTileEl(tt, { tiny: true })));
         } else {
-          // 碰/杠 显示3或4张
+          // 碰/杠：真实牌 + 压着的财神直接展示（财神带黄膜）
+          const godsUsed = m.godTilesUsed || [];
           const cnt = (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
-          for (let i = 0; i < cnt; i++) {
-            const el = makeTileEl(m.tile, { tiny: true });
-            if (i === 0 && m.type === 'gang' && !m.isAn) el.textContent = (m.isAn ? '' : T.tileToString(m.tile));
-            wrap.appendChild(el);
+          for (let i = 0; i < cnt - godsUsed.length; i++) {
+            wrap.appendChild(makeTileEl(m.tile, { tiny: true }));
           }
+          godsUsed.forEach(g => {
+            const el = makeTileEl(g, { tiny: true });
+            el.classList.add('god-mark');
+            wrap.appendChild(el);
+          });
         }
         meldRow.appendChild(wrap);
       });

@@ -337,7 +337,7 @@ body.mobile .act-btn { padding: 8px 14px; font-size: 13px; }
   <!-- 操作区 -->
   <div id="actions">
     <button id="btn-discard" class="act-btn discard" style="display:none">出牌</button>
-    <button id="btn-swap" class="act-btn swap" style="display:none">换回财神</button>
+    <button id="btn-swap" class="act-btn swap" style="display:none">抽抽</button>
     <button id="btn-chi" class="act-btn" style="display:none">吃</button>
     <button id="btn-peng" class="act-btn" style="display:none">碰</button>
     <button id="btn-gang" class="act-btn" style="display:none">杠</button>
@@ -718,6 +718,8 @@ function winReplace(hand, godTiles, opts = {}) {
 }
 
 function canWin(hand, godTiles, opts = {}) {
+  // 七对：无副露、14 张、七对子、无财神（财神不参与七对）
+  if (!(opts.melds || []).length && isSevenPairs(hand, godTiles)) return true;
   return winReplace(hand, godTiles, opts) === 0;
 }
 
@@ -988,6 +990,9 @@ function calcTai(info) {
 
   // 杠开
   if (gangKai) { tai += 1; details.push('杠上开花 +1台'); }
+
+  // 七对：无副露、无财神、七对子（调研口径与清一色同级 +3 台）
+  if (melds.length === 0 && isSevenPairs(hand, godTiles)) { tai += 3; details.push('七对 +3台'); }
 
   // 齐花/齐季/对座花牌
   const fset = new Set(collectedFlowers.map(f => f.num));
@@ -2295,13 +2300,19 @@ if (typeof module !== 'undefined' && module.exports) {
           } else {
             const cnt = (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
             const isAnGang = m.type === 'gang' && m.isAn;
+            const godsUsed = m.godTilesUsed || [];
             for (let i = 0; i < cnt; i++) {
               if (isAnGang) {
                 const back = document.createElement('div');
                 back.className = 'back-tile opp-meld-back';
                 wrap.appendChild(back);
-              } else {
+              } else if (i < cnt - godsUsed.length) {
                 wrap.appendChild(makeTileEl(m.tile, { tiny: true }));
+              } else {
+                // 压着的财神直接展示（带黄膜）
+                const el = makeTileEl(godsUsed[i - (cnt - godsUsed.length)], { tiny: true });
+                el.classList.add('god-mark');
+                wrap.appendChild(el);
               }
             }
           }
@@ -2354,23 +2365,20 @@ if (typeof module !== 'undefined' && module.exports) {
       me.melds.forEach(m => {
         const wrap = document.createElement('div');
         wrap.className = 'meld';
-        // 副露里压着财神（财神碰/双夹）→ 加小标记，提示可抽回
-        if ((m.godTilesUsed || []).length > 0) {
-          const badge = document.createElement('span');
-          badge.className = 'meld-god-badge';
-          badge.textContent = '神×' + m.godTilesUsed.length;
-          wrap.appendChild(badge);
-        }
         if (m.type === 'chi' && m.tiles) {
           m.tiles.forEach(tt => wrap.appendChild(makeTileEl(tt, { tiny: true })));
         } else {
-          // 碰/杠 显示3或4张
+          // 碰/杠：真实牌 + 压着的财神直接展示（财神带黄膜）
+          const godsUsed = m.godTilesUsed || [];
           const cnt = (m.type === 'gang' || m.type === 'bugang') ? 4 : 3;
-          for (let i = 0; i < cnt; i++) {
-            const el = makeTileEl(m.tile, { tiny: true });
-            if (i === 0 && m.type === 'gang' && !m.isAn) el.textContent = (m.isAn ? '' : T.tileToString(m.tile));
-            wrap.appendChild(el);
+          for (let i = 0; i < cnt - godsUsed.length; i++) {
+            wrap.appendChild(makeTileEl(m.tile, { tiny: true }));
           }
+          godsUsed.forEach(g => {
+            const el = makeTileEl(g, { tiny: true });
+            el.classList.add('god-mark');
+            wrap.appendChild(el);
+          });
         }
         meldRow.appendChild(wrap);
       });

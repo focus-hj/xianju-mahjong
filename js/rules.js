@@ -201,6 +201,8 @@ function winReplace(hand, godTiles, opts = {}) {
 }
 
 function canWin(hand, godTiles, opts = {}) {
+  // 七对：无副露、14 张、七对子、无财神（财神不参与七对）
+  if (!(opts.melds || []).length && isSevenPairs(hand, godTiles)) return true;
   return winReplace(hand, godTiles, opts) === 0;
 }
 
@@ -471,6 +473,9 @@ function calcTai(info) {
 
   // 杠开
   if (gangKai) { tai += 1; details.push('杠上开花 +1台'); }
+
+  // 七对：无副露、无财神、七对子（调研口径与清一色同级 +3 台）
+  if (melds.length === 0 && isSevenPairs(hand, godTiles)) { tai += 3; details.push('七对 +3台'); }
 
   // 齐花/齐季/对座花牌
   const fset = new Set(collectedFlowers.map(f => f.num));
