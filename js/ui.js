@@ -90,10 +90,10 @@
       }
       const tilesEl = opp.querySelector('.opp-tiles');
       if (tilesEl) tilesEl.textContent = p.handCount + ' 张';
-      // 副露：真实牌面展示（不写汉字）；暗杠对其他人只露牌背
-      const meldEl = opp.querySelector('.opp-melds');
-      if (meldEl) {
-        meldEl.innerHTML = '';
+      // 副露+花牌：真实牌面，展示在各家专属角落区域（西左上/南右上/北左下）
+      const exposedEl = $('melds-' + seat);
+      if (exposedEl) {
+        exposedEl.innerHTML = '';
         p.melds.forEach(m => {
           const wrap = document.createElement('div');
           wrap.className = 'meld opp-meld';
@@ -118,11 +118,14 @@
               }
             }
           }
-          meldEl.appendChild(wrap);
+          exposedEl.appendChild(wrap);
+        });
+        // 花牌：展示具体的花（真实牌面，跟在副露后面）
+        p.flowers.forEach(f => {
+          const el = makeTileEl(f, { tiny: true, extra: 'opp-flower' });
+          exposedEl.appendChild(el);
         });
       }
-      const flowerEl = opp.querySelector('.opp-flowers');
-      if (flowerEl) flowerEl.textContent = p.flowers.length ? '🌸×' + p.flowers.length : '';
       // 背面手牌
       const handEl = $('hand-' + seat);
       if (handEl) {
@@ -261,10 +264,11 @@
     if (!bar) return;
     if (snap.roundInfo) {
       const ri = snap.roundInfo;
-      if (ri.isHumanWin) bar.textContent = '恭喜胡牌！' + (ri.winType === 'self' ? '自摸' : '点炮');
-      else bar.textContent = ri.winnerName + (ri.winType === 'self' ? ' 自摸胡牌' : ' 胡牌');
+      const way = ri.winType === 'discard' ? '点炮' : '自摸';
+      if (ri.isHumanWin) bar.textContent = '恭喜胡牌！' + way;
+      else bar.textContent = ri.winnerName + (ri.winType === 'discard' ? ' 胡牌' : ' 自摸胡牌');
     } else if (snap.drawGame) {
-      bar.textContent = '牌墙摸完，流局';
+      bar.textContent = '黄牌流局（剩 8 对）';
     } else if (snap.log && snap.log.length) {
       bar.textContent = snap.log[snap.log.length-1].msg;
     }
@@ -484,7 +488,7 @@
     const ri = snap.roundInfo;
     if (!ri) {
       // 流局展示
-      $('result-title').textContent = '🀄 牌墙摸完 · 流局';
+      $('result-title').textContent = '🀄 黄牌流局（剩 8 对）';
       $('result-tai').textContent = '—';
       $('result-detail').textContent = '本局无人胡牌，重新开局吧';
       $('result-scores').innerHTML = '';
@@ -494,8 +498,9 @@
     }
     const title = $('result-title');
     const chengBao = ri.chengBao && ri.chengBao.length > 0;
+    const wayTxt = ri.winType === 'discard' ? '点炮' : '自摸';
     title.textContent = (ri.isHumanWin ? '🎉 恭喜胡牌！' : ri.winnerName + ' 胡牌')
-      + (ri.winType === 'self' ? '（自摸）' : (chengBao ? '（点炮·承包）' : '（点炮）'));
+      + '（' + wayTxt + (chengBao ? '·承包' : '') + '）';
     $('result-tai').textContent = ri.tai + ' 台';
     $('result-detail').textContent = ri.details.join('  ·  ')
       + (chengBao ? '　💥 ' + T.FENG_NAMES[ri.payerSeat - 1] + '家' + ri.chengBao.join('、') + '，包三家(×3)' : '');

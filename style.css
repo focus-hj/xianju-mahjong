@@ -48,11 +48,20 @@ body {
 .seat-name { color: #ffd76a; font-weight: 600; background: rgba(0,0,0,.3); padding: 1px 6px; border-radius: 3px; }
 .opp-info .is-dealer { color: #e74c3c; }
 .opp-tiles { font-size: 12px; color: #c8d6c0; background: rgba(0,0,0,.25); padding: 1px 8px; border-radius: 3px; }
-.opp-melds { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 170px; min-height: 0; }
-.opp-melds:empty { display: none; }
-.opp-meld { background: rgba(255,255,255,.08); padding: 1px; border-radius: 3px; }
-.opp-meld-back { width: 16px; height: 20px; background: url("assets/tiles/MJback.svg") center / cover no-repeat; border-radius: 2px; }
-.opp-flowers { font-size: 11px; color: #aed6a0; }
+/* 对手副露+花牌区：各家专属角落（西=左上、南=右上、北=左下），不与弃牌/手牌重叠 */
+.opp-exposed {
+  position: absolute; display: flex; flex-wrap: wrap; gap: 3px; align-content: flex-start;
+  max-width: 290px; z-index: 4;
+}
+.opp-exposed:empty { display: none; }
+#melds-3 { top: 6px; left: 8px; }          /* 西家：左上角 */
+#melds-2 { top: 6px; right: 8px; }         /* 南家：右上角 */
+#melds-4 { bottom: 6px; left: 8px; }       /* 北家：左下角 */
+.opp-exposed .opp-meld { background: rgba(255,255,255,.08); padding: 1px; border-radius: 3px; }
+.opp-exposed .opp-meld-back { width: 16px; height: 20px; background: url("assets/tiles/MJback.svg") center / cover no-repeat; border-radius: 2px; }
+/* 对手花牌：真实牌面，略小于副露牌 */
+.opp-exposed .opp-flower { opacity: .95; }
+.opp-flowers { display: none; } /* 花牌改真实牌面展示在副露区，文字计数废弃 */
 .opp.thinking .seat-name { background: rgba(255,215,106,.28); box-shadow: 0 0 6px rgba(255,215,106,.45); }
 @keyframes thinkPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
 
@@ -247,6 +256,6 @@ body.mobile #countdown-clock.pos-4 { left: calc(13% + 120px); }
 body.mobile #countdown-clock.pos-2 { right: calc(13% + 120px); }
 
 body.mobile #center-deco { font-size: 28px; letter-spacing: 8px; }
-body.mobile #msg-bar { font-size: 11px; top: calc(50% + 24px); padding: 3px 10px; }
+body.mobile #msg-bar { font-size: 11px; top: calc(50% + 24px); padding: 3px 10px; left: calc(50% + 70px); transform: none; max-width: 38%; }
 body.mobile #actions { bottom: 92px; }
 body.mobile .act-btn { padding: 8px 14px; font-size: 13px; }

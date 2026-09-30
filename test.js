@@ -271,6 +271,173 @@ const WIN_ON_ZHONG = 'w1w2w3w4w5w6w7w8w9b5b5j1j1'; // 台数=平1+硬碰硬1+硬
   assert(g.huChengBao.length === 0, '③b 仅2摊来自点炮者→不承包');
   assert(g.roundInfo.scores[1] === -4 && g.roundInfo.scores[2] === 4, '③b 普通点炮付2×');
 }
+// ④ 生牌阶段承包：剩15对打生牌被胡 → 包三家（台=平1+硬碰硬1=2，2×3=6）
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  g.deck = []; for (let i = 0; i < 30; i++) g.deck.push({ suit: 'wan', num: 9 });
+  g.playedTypes = new Set(['wan|5']);
+  g.lastDiscardWasSheng = true; // 打出前该牌面从未出现过
+  const T4 = { suit: 'tiao', num: 4 };
+  g.getPlayer(2).hand = h('t2t3t4t5t6w1w2w3b5b6b7j3j3'); // +t4 胡
+  g.lastDiscard = { seat: 1, tile: T4 };
+  g.discards = [{ seat: 1, tile: T4 }];
+  g.doHu(2, T4, 'discard');
+  assert(g.huChengBao.some(r => r.includes('生牌阶段')), '④ 剩15对打生牌被胡→承包');
+  assert(g.roundInfo.scores[1] === -6 && g.roundInfo.scores[2] === 6, '④ 承包包三家付3×');
+}
+// ④b 对照：打的是熟牌 → 不承包（2×2=4）
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  g.deck = []; for (let i = 0; i < 30; i++) g.deck.push({ suit: 'wan', num: 9 });
+  g.playedTypes = new Set(['wan|5', 'tiao|4']);
+  g.lastDiscardWasSheng = false;
+  const T4 = { suit: 'tiao', num: 4 };
+  g.getPlayer(2).hand = h('t2t3t4t5t6w1w2w3b5b6b7j3j3');
+  g.lastDiscard = { seat: 1, tile: T4 };
+  g.discards = [{ seat: 1, tile: T4 }];
+  g.doHu(2, T4, 'discard');
+  assert(g.huChengBao.length === 0, '④b 生牌阶段打熟牌→不承包');
+  assert(g.roundInfo.scores[1] === -4 && g.roundInfo.scores[2] === 4, '④b 普通点炮付2×');
+}
+
+console.log('== 清一色自摸追包（上家承包） ==');
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  const w = g.getPlayer(2);
+  w.melds = [
+    { type: 'peng', tile: { suit: 'tong', num: 1 }, fromSeat: 1 },
+    { type: 'peng', tile: { suit: 'tong', num: 2 }, fromSeat: 1 },
+    { type: 'chi', tile: { suit: 'tong', num: 4 }, tiles: [{ suit: 'tong', num: 4 }, { suit: 'tong', num: 5 }, { suit: 'tong', num: 6 }], fromSeat: 1 },
+  ];
+  g.finish(2, 'self', h('t7t8t9t9t9'), null, false);
+  assert(g.huPayerSeat === 1 && g.huChengBao.some(r => r.includes('自摸追包')), '清一色+三摊来自上家→自摸追包');
+  // 台=平1+硬碰硬1+清一色3=5 → 5×3=15
+  assert(g.roundInfo.scores[1] === -15 && g.roundInfo.scores[2] === 15 && g.roundInfo.scores[3] === 0 && g.roundInfo.scores[4] === 0, '追包：上家包三家，其余两家0');
+}
+// 对照：三摊不来自上家 → 正常自摸三家各付5
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  const w = g.getPlayer(2);
+  w.melds = [
+    { type: 'peng', tile: { suit: 'tong', num: 1 }, fromSeat: 3 },
+    { type: 'peng', tile: { suit: 'tong', num: 2 }, fromSeat: 3 },
+    { type: 'chi', tile: { suit: 'tong', num: 4 }, tiles: [{ suit: 'tong', num: 4 }, { suit: 'tong', num: 5 }, { suit: 'tong', num: 6 }], fromSeat: 1 },
+  ];
+  g.finish(2, 'self', h('t7t8t9t9t9'), null, false);
+  assert(g.huPayerSeat === 0 && g.roundInfo.scores[1] === -5 && g.roundInfo.scores[3] === -5 && g.roundInfo.scores[4] === -5, '无追包→自摸三家各付');
+}
+
+console.log('== 七对 ==');
+assert(R.canWin(h('w1w1w2w2w3w3b4b4b5b5f2f2f3f3'), GODS) === true, '七对可胡');
+assert(R.canWin(h('w1w1w2w2w3w3b4b4b5b5f2f2f3f3'), GODS, { melds: [{}] }) === false, '有副露不算七对');
+{
+  const t7 = R.calcTai({ hand: h('w1w1w2w2w3w3b4b4b5b5f2f2f3f3'), godTiles: GODS, seat: 2, zhuangSeat: 1, melds: [], winType: 'self', collectedFlowers: [] });
+  assert(t7.details.some(d => d.includes('七对')), '七对 +3台');
+  assert(!t7.details.some(d => d.includes('碰碰胡')), '七对不误判碰碰胡');
+}
+
+console.log('== 黄牌流局（剩16张） ==');
+{
+  const g = new Game({ humanSeat: 1 });
+  g.deck = []; for (let i = 0; i < 16; i++) g.deck.push({ suit: 'wan', num: 9 });
+  g.doDraw(2);
+  assert(g.drawGame === true && g.phase === 'over', '牌墙剩8对（16张）→ 黄牌流局');
+}
+
+console.log('== 轮庄（庄胡连庄） ==');
+{
+  const g = new Game({ humanSeat: 1 });
+  g.zhuangSeat = 1; g.winnerSeat = 1;
+  g.nextRound();
+  assert(g.zhuangSeat === 1, '庄家胡牌→连庄');
+  g.winnerSeat = 2;
+  g.nextRound();
+  assert(g.zhuangSeat === 2, '闲家胡牌→下庄');
+  g.winnerSeat = 0; // 流局
+  g.nextRound();
+  assert(g.zhuangSeat === 3, '黄牌流局→下庄');
+}
+
+console.log('== 天胡结算（三家各付） ==');
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  g.finish(1, 'tianhu', h('w1w2w3w4w5w6w7w8w9b1b2b3j3j3'), null, true);
+  // 台=庄2+硬碰硬1+天胡4=7 → 三家各付7
+  assert(g.roundInfo.scores[1] === 21 && g.roundInfo.scores[2] === -7 && g.roundInfo.scores[3] === -7 && g.roundInfo.scores[4] === -7, '天胡按自摸三家各付');
+}
+
+console.log('== 同巡限制（能胡不胡/能碰不碰） ==');
+const W5 = { suit: 'wan', num: 5 };
+const HAND_W5WIN = 'w3w4t2t3t4b5b6b7w7w8w9j3j3'; // 13张 + w5 胡
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  g.deck = []; for (let i = 0; i < 40; i++) g.deck.push({ suit: 'wan', num: 9 });
+  g.getPlayer(1).hand = h(HAND_W5WIN);
+  g.gatherClaims(2, W5);
+  assert(g.pendingClaims.some(c => c.seat === 1 && c.action === 'hu'), '玩家可胡 w5');
+  g.currentSeat = 2;
+  g.lastDiscard = { seat: 2, tile: W5 };
+  g.phase = 'waitHumanClaim';
+  g.humanClaim('pass'); // 放弃胡
+  assert((g.passLock[1] || []).some(l => l.action === 'hu'), '能胡不胡→本巡已锁定');
+  g.gatherClaims(3, W5); // 西家同巡再打 w5
+  assert(!g.pendingClaims.some(c => c.seat === 1 && c.action === 'hu'), '同巡再打 w5 不能再胡');
+  g.doDraw(1); // 动牌
+  assert(!(g.passLock[1] || []).length, '动牌后同巡限制解除');
+}
+
+console.log('== 吃张当巡禁打同张 ==');
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  const me = g.getPlayer(1);
+  me.hand = h('w2w3w4t2t3t4b5b6b7w7w8j3j3'); // 13张含 w4
+  g.lastDiscard = { seat: 4, tile: { suit: 'wan', num: 4 } };
+  g.discards = [{ seat: 4, tile: { suit: 'wan', num: 4 } }];
+  const chis = R.canChi(me.hand, { suit: 'wan', num: 4 }, 1, 4);
+  assert(chis.length >= 1, '可吃上家 w4');
+  g.doChi(1, { suit: 'wan', num: 4 }, chis[0]);
+  assert(!!me.chiBanTile && me.hand.length === 11, '吃后记录禁打牌');
+  const idx4 = me.hand.findIndex(t => t.suit === 'wan' && t.num === 4);
+  assert(idx4 >= 0 && g.doDiscard(1, idx4) === false && me.hand.length === 11, '当巡禁打同张 w4');
+  const idxOther = me.hand.findIndex(t => t.suit === 'jian' && t.num === 3);
+  assert(g.doDiscard(1, idxOther) === true && !me.chiBanTile, '打其他牌正常并解除禁打');
+}
+
+console.log('== 抢杠胡（被抢杠者承包） ==');
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  const me = g.getPlayer(1);
+  me.melds = [{ type: 'peng', tile: { suit: 'wan', num: 5 }, fromSeat: 2 }];
+  me.hand = h('w5t1t2t3'); // 有第4张5万可补杠
+  g.getPlayer(2).hand = h(HAND_W5WIN); // 南家点5万胡
+  g.phase = 'waitHumanDiscard';
+  g.humanBuGang();
+  assert(g.phase === 'over' && g.winnerSeat === 2, '补杠被抢→抢杠胡');
+  assert(g.huPayerSeat === 1 && g.huChengBao.some(r => r.includes('被抢杠承包')), '被抢杠者承包');
+  // 台=平1+硬碰硬1=2 → 2×3=6
+  assert(g.roundInfo.scores[1] === -6 && g.roundInfo.scores[2] === 6 && g.roundInfo.scores[3] === 0, '抢杠承包包三家付3×');
+}
+// 对照：无人能胡补杠牌 → 正常补杠
+{
+  const g = new Game({ humanSeat: 1 });
+  g.godTiles = GODS;
+  const me = g.getPlayer(1);
+  me.melds = [{ type: 'peng', tile: { suit: 'wan', num: 5 }, fromSeat: 2 }];
+  me.hand = h('w5t1t2t3');
+  g.deck = []; for (let i = 0; i < 20; i++) g.deck.push({ suit: 'wan', num: 9 }); // 牌墙充足（>黄牌线）
+  g.currentSeat = 1;
+  g.phase = 'waitHumanDiscard';
+  g.humanBuGang();
+  assert(g.phase !== 'over' && me.melds[0].type === 'bugang', '无人抢杠→正常补杠');
+}
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exit(fail > 0 ? 1 : 0);
